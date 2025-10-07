@@ -1,0 +1,4312 @@
+---
+title: "CTX-LPDM"
+author: "Kamau"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggsci)
+library(ggpubr)
+library(reshape2)
+library(readr)
+library(readxl)
+library(gtsummary)
+library(gt)
+library(table1)
+library(webshot2)
+library(webshot)
+library(plm)
+library(lcmm)
+library(rstatix)
+library(lme4)
+library(VGAM)
+library(memisc)
+library(kableExtra)
+library(mclogit)
+library(pbkrtest)
+library(lavaan)
+library(lavaanPlot)
+library(dlookr)
+library(openxlsx)
+library(readxl)
+library(tableone)
+library(limma)
+library(ggplot2)
+library(dplyr)
+library(scales)
+library(missForest)
+library(impute)
+library(Boruta)
+library(glmnet)
+library(clogitL1)
+library(mda)
+library(janitor)
+library(broom.mixed)
+library(ggsignif)
+library(ggbeeswarm)
+library(edgeR)
+library(survival)
+library(ppcor)
+library(broom)
+library(webshot2)
+library(webshot)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## LPDM Analysis {.tabset}
+
+### Baseline characteristics  
+
+*** Characteristics at Month 2 
+```{r warning=FALSE}
+
+baseline <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+
+baseline_Table1 <- baseline %>% 
+  dplyr::select(subjid, agemonth, sex, site, case, arm, pneumon, diarrho, cerebral, shock, ends_with("2"))
+
+
+baseline_Table1 <- baseline_Table1 %>% dplyr::select(!ends_with("12"), -c(height2, weight2, datem2))
+
+baseline_Table1.1 <- baseline_Table1 %>% 
+  dplyr::select(agemonth, sex, site, case, arm, muac2, zlen2, zwei2, zwfl2, 
+                pneumon, diarrho, shock, cerebral,oedema2, hg2, platelet2, wbc2, lymph2, neutrop2)
+
+
+baseline_Table1.1 %>% 
+  tbl_summary(by = case,
+              #type = list(all_continuous() ~ "continuous2"),
+              statistic = list(all_continuous() ~ c("{median} ({p25} - {p75})")),
+              digits = list(all_continuous() ~ 1), 
+              label = list(sex ~ "Males (%)",
+                           agemonth ~ "Age at admission, months",
+                           site ~ "Site",
+                           sex ~ "Sex (%)",
+                           arm ~ "Treatment Arm",
+                           muac2 ~ "MUAC",
+                           zlen2 ~ "LAZ score",
+                           zwei2 ~ "WAZ score",
+                           zwfl2 ~ "WLZ score",
+                           oedema2 ~ "Oedema (%)",
+                           pneumon ~ "Pneumonia",
+                           diarrho ~ "Diarrhoea",
+                           shock ~ "Shock",
+                           cerebral ~ "Cerebral palsy",
+                           hg2 ~ "Haemoglobin counts (g/dl)",
+                           platelet2 ~ "Platelets (10^3/L)",
+                           wbc2 ~ "Total WBC counts (10^3/L)",
+                           lymph2 ~ "Lymphocyte counts (10^3/L)",
+                           neutrop2 ~ "Neutrophil counts (10^3/L)"),
+              missing = "no",
+              value = list(sex ~ "Female")) %>% 
+                modify_spanning_header(c("stat_1", "stat_2") ~ "**Survival Status**") %>%
+                modify_header(label = "**Participants' characteristics**",
+                              all_stat_cols() ~ "**{level}**\n(n={n})") %>%
+                
+                add_overall(last = T, col_label = "**Total**\n(n={N})") %>%
+                
+                add_p(list(all_continuous() ~ "t.test",
+                           all_categorical() ~ "chisq.test"),
+                      pvalue_fun = function(x) style_pvalue(x, digits = 1)) %>% 
+  as_gt()  %>% gt::gtsave(filename = "../Figures/Tables/CTX_LPDM_Table_1_m2.docx")
+
+```
+
+*** Characteristics at Enrolment
+
+```{r warning=FALSE}
+baseline <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+
+
+baseline_enrol <- baseline %>% 
+  dplyr::select(subjid, agemonth, sex, site, case, arm, pneumon, diarrho, cerebral, shock, ends_with("0"))
+
+
+baseline_enrol <- baseline_enrol %>% dplyr::select(!ends_with("10"), -c(height0, weight0))
+
+baseline_enrol <- baseline %>% 
+  dplyr::select(agemonth, sex, site, case, arm, muac0, zlen0, zwei0, zwfl0, 
+                pneumon, diarrho, shock, cerebral,oedema0, ehg, eplatelet, ewbc, elymph, eneutrop)
+
+
+baseline_enrol %>% 
+  tbl_summary(by = case,
+              statistic = list(all_continuous() ~ c("{median} ({p25} - {p75})")),
+              digits = list(all_continuous() ~ 1), 
+              label = list(
+                           agemonth ~ "Age at admission, months",
+                           site ~ "Site",
+                           sex ~ "Sex (%)",
+                           arm ~ "",
+                           muac0 ~ "MUAC",
+                           zlen0 ~ "LAZ score",
+                           zwei0 ~ "WAZ score",
+                           zwfl0 ~ "WLZ score",
+                           oedema0 ~ "Oedema (%)",
+                           pneumon ~ "Pneumonia",
+                           diarrho ~ "Diarrhoea",
+                           shock ~ "Shock",
+                           cerebral ~ "Cerebral palsy",
+                           ehg ~ "Haemoglobin counts (g/dl)",
+                           eplatelet ~ "Platelets (10^3/L)",
+                           ewbc ~ "Total WBC counts (10^3/L)",
+                           elymph ~ "Lymphocyte counts (10^3/L)",
+                           eneutrop ~ "Neutrophil counts (10^3/L)"),
+              missing = "no",
+              value = list(sex ~ "Male")) %>% 
+                modify_spanning_header(c("stat_1", "stat_2") ~ "**Survival Status**") %>%
+                modify_header(label = "**Participants' characteristics**",
+                              all_stat_cols() ~ "**{level}**\n(n={n})") %>%
+                
+                add_overall(last = T, col_label = "**Total**\n(n={N})") %>%
+                
+                add_p(list(all_continuous() ~ "t.test",
+                           all_categorical() ~ "chisq.test"),
+                      pvalue_fun = function(x) style_pvalue(x, digits = 1)) %>% as_gt()  %>% 
+  gt::gtsave(filename = "../Figures/Tables/CTX_LPDM_Table_1_enrolment.docx")
+
+```
+
+*** Characteristics at month 2 stratified by sex
+```{r warning=FALSE}
+
+baseline <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+
+
+baseline_Table1 <- baseline %>% 
+  dplyr::select(subjid, agemonth, sex, site, case, arm, pneumon, diarrho, cerebral, shock, ends_with("2"))
+
+
+baseline_Table1 <- baseline_Table1 %>% dplyr::select(!ends_with("12"), -c(height2, weight2, datem2))
+
+baseline_Table1.1 <- baseline_Table1 %>% 
+  dplyr::select(agemonth, sex, site, case, arm, muac2, zlen2, zwei2, zwfl2, 
+                pneumon, diarrho, shock, cerebral,oedema2, hg2, platelet2, wbc2, lymph2, neutrop2)
+
+baseline_Table1.1 %>% 
+  tbl_summary(by = case,
+              type = list(all_continuous() ~ "continuous2"),
+              statistic = list(all_continuous() ~ c("{median} ({p25} - {p75})")),
+              digits = list(all_continuous() ~ 1), 
+              label = list(sex ~ "Males (%)",
+                           agemonth ~ "Age at admission, months",
+                           site ~ "Site",
+                           sex ~ "Sex (%)",
+                           arm ~ "",
+                           muac2 ~ "MUAC",
+                           zlen2 ~ "LAZ score",
+                           zwei2 ~ "WAZ score",
+                           zwfl2 ~ "WLZ score",
+                           oedema2 ~ "Oedema (%)",
+                           pneumon ~ "Pneumonia",
+                           diarrho ~ "Diarrhoea",
+                           shock ~ "Shock",
+                           cerebral ~ "Cerebral palsy",
+                           hg2 ~ "Haemoglobin counts (g/dl)",
+                           platelet2 ~ "Platelets (10^3/L)",
+                           wbc2 ~ "Total WBC counts (10^3/L)",
+                           lymph2 ~ "Lymphocyte counts (10^3/L)",
+                           neutrop2 ~ "Neutrophil counts (10^3/L)"),
+              missing = "no",
+              value = list(sex ~ "Female")) %>% 
+                modify_spanning_header(c("stat_1", "stat_2") ~ "**Survival Status**") %>%
+                modify_header(label = "**Participants' characteristics**",
+                              all_stat_cols() ~ "**{level}**\n(n={n})") %>%
+                
+                add_overall(last = T, col_label = "**Total**\n(n={N})") %>%
+                
+                add_p(list(all_continuous() ~ "t.test",
+                           all_categorical() ~ "chisq.test"),
+                      pvalue_fun = function(x) style_pvalue(x, digits = 1)) %>% 
+  as_gt()  %>% gt::gtsave(filename = "../Figures/Tables/Table1bysex.docx")
+
+
+```
+
+*** Table of anthropometry and haematology
+
+```{r warning=FALSE}
+baseline <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+
+## month2 
+baseline_Table1 <- baseline %>% 
+  dplyr::select(subjid, agemonth, sex, site, case, arm, pneumon, diarrho, cerebral, shock, ends_with("2"))
+
+
+baseline_Table1 <- baseline_Table1 %>% dplyr::select(!ends_with("12"), -c(height2, weight2, datem2))
+
+baseline_Table_M2 <- baseline_Table1 %>% 
+  dplyr::select(subjid, agemonth, sex, site, case, arm, muac2, zlen2, zwei2, zwfl2, 
+                pneumon, diarrho, shock, cerebral,oedema2, hg2, platelet2, wbc2, lymph2, neutrop2)
+
+##Enrolment
+baseline_Table_enrol <- baseline %>% 
+  dplyr::select(subjid, agemonth, sex, site, case, arm, pneumon, diarrho, cerebral, shock,ehg, elymph, eplatelet, ewbc, eneutrop, ends_with("0"))
+
+
+baseline_Table_enrol <- baseline_Table_enrol %>% dplyr::select(!ends_with("10"))
+
+baseline_Table_enrol <- baseline_Table_enrol %>% 
+    dplyr::select(subjid,agemonth, sex, site, case, arm, muac0, zlen0, zwei0,
+                  zwfl0,pneumon, diarrho, shock, cerebral,oedema0,
+                  ehg,eplatelet, ewbc, elymph, eneutrop)
+
+base_enrol <- baseline_Table_enrol %>% dplyr::select(c(1,5,7:10,16:20))
+base_enrol$Timepoint <- "Enrolment"
+
+
+base_M2 <- baseline_Table_M2 %>% dplyr::select(c(1,5,7:10,16:20))
+base_M2$Timepoint <- "Month 2"
+
+base_enrol <- base_enrol %>% 
+  pivot_longer(cols = -c(subjid,Timepoint, case),
+               names_to = "haematology",
+               values_to = "values")
+
+base_M2 <- base_M2 %>% 
+  pivot_longer(cols = -c(subjid,Timepoint,case),
+               names_to = "haematology",
+               values_to = "values")
+
+combined_anthro_hema <- bind_rows(base_enrol,base_M2)
+
+combined_anthro_hema <- combined_anthro_hema %>% 
+  dplyr::mutate(haematology = 
+                  case_when(haematology=="ehg"| haematology == "hg2" ~ "Haemoglobin",
+                            haematology=="eplatelet" | haematology == "platelet2" ~"Platelets",
+                            haematology=="ewbc" | haematology =="wbc2" ~ "WBCs",
+                            haematology=="elymph" | haematology == "lymph2" ~ "Lymphocytes",
+                            haematology=="eneutrop"| haematology == "neutrop2" ~ "Neutrophils", 
+                            haematology=="muac0"| haematology == "muac2" ~ "MUAC", 
+                            haematology=="zlen0"| haematology == "zlen2" ~ "LAZ", 
+                            haematology=="zwei0"| haematology == "zwei2" ~ "WAZ", 
+                            haematology=="zwfl0"| haematology == "zwfl2" ~ "WLZ", 
+                            TRUE ~ haematology))
+
+combined_anthro_hema <- combined_anthro_hema %>% 
+  dplyr::mutate(case = 
+                  case_when(case=="Case" ~ "Cases",
+                            case=="Control" ~ "Controls"))
+
+
+hematology_table1 <- combined_anthro_hema #%>% dplyr::select(-c(subjid))
+
+hematology_table_wide <- hematology_table1 %>% 
+  pivot_wider(names_from = haematology,
+              values_from = values)
+
+paired_wilcox <- function(data, variable, by, ...) {
+  test_result <- wilcox.test(
+    formula = as.formula(paste(variable, "~", by)),
+    data = data,
+    paired = TRUE
+  )
+  tibble::tibble(p.value = test_result$p.value)
+}
+
+hematology_table_wide %>% dplyr::select(-c(subjid)) %>% 
+  tbl_strata(
+    strata = case,
+    .tbl_fun = ~ .x %>%
+      tbl_summary(
+        by = Timepoint,
+        #type = list(all_continuous() ~ "continuous2"),
+        statistic = list(all_continuous() ~ "{median} ({p25} - {p75})"),
+        digits = list(all_continuous() ~ 1),
+        label = list(
+          MUAC ~ "MUAC in (cm)",
+           LAZ ~ "LAZ",
+           WAZ~ "WAZ",
+           WLZ ~ "WLZ",
+          Haemoglobin ~ "Haemoglobin (g/dl)",
+          Platelets ~ "Platelets (10^3/L)",
+          WBCs ~ "WBCs (10^3/L)",
+          Lymphocytes ~ "Lymphocyte (10^3/L)",
+          Neutrophils ~ "Neutrophil (10^3/L)"
+        ),
+        missing = "no"
+      ) %>%
+      #  add_p(list(all_continuous() ~ "wilcox.test"
+      #   ),
+      #   pvalue_fun = function(x) style_pvalue(x, digits = 3)
+      # ) %>%
+      modify_header(
+        label = "**Participants' Measurements**",
+        all_stat_cols() ~ "**{level}**\n(n={n})"
+      ),
+    .combine_with = "tbl_merge"
+  ) %>%
+  as_gt() %>%
+  gt::gtsave("../Figures/Tables/CTX_LPDM_Table_haematologyand anthropometry_by_timepoint_case.docx")
+```
+
+
+```{r}
+
+baseline <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+
+## month2 
+baseline_Table1 <- baseline %>% 
+  dplyr::select(subjid, agemonth, sex, site, case, arm, pneumon, diarrho, cerebral, shock, ends_with("2"))
+
+
+baseline_Table1 <- baseline_Table1 %>% dplyr::select(!ends_with("12"), -c(height2, weight2, datem2))
+
+baseline_Table_M2 <- baseline_Table1 %>% 
+  dplyr::select(subjid, agemonth, sex, site, case, arm, muac2, zlen2, zwei2, zwfl2, 
+                pneumon, diarrho, shock, cerebral,oedema2, hg2, platelet2, wbc2, lymph2, neutrop2)
+
+##Enrolment
+baseline_Table_enrol <- baseline %>% 
+  dplyr::select(subjid, agemonth, sex, site, case, arm, pneumon, diarrho, cerebral, shock,ehg, elymph, eplatelet, ewbc, eneutrop, ends_with("0"))
+
+
+baseline_Table_enrol <- baseline_Table_enrol %>% dplyr::select(!ends_with("10"))
+
+baseline_Table_enrol <- baseline_Table_enrol %>% 
+    dplyr::select(subjid,agemonth, sex, site, case, arm, muac0, zlen0, zwei0,
+                  zwfl0,pneumon, diarrho, shock, cerebral,oedema0,
+                  ehg,eplatelet, ewbc, elymph, eneutrop)
+
+base_enrol <- baseline_Table_enrol %>% dplyr::select(c(1,5,7:10,16:20))
+base_enrol$Timepoint <- "Enrolment"
+
+
+base_M2 <- baseline_Table_M2 %>% dplyr::select(c(1,5,7:10,16:20))
+base_M2$Timepoint <- "Month 2"
+
+
+combined_anthro_regression <- bind_cols(base_enrol,base_M2)
+
+combined_anthro_regression <- combined_anthro_regression %>% 
+  dplyr::select(-c(starts_with("Timepoint"),"subjid...13","case...14")) %>% 
+  dplyr::rename(subjid=subjid...1,case=case...2)
+
+combined_anthro_regression <- baseline %>%
+  dplyr::select(subjid,agemonth,site,sex) %>% 
+  left_join(., combined_anthro_regression, join_by(subjid))
+
+combined_anthro_regression <- combined_anthro_regression %>% 
+  dplyr::mutate(MUAC = muac2 - muac0,
+                WAZ = zwei2 - zwei0,
+                WHZ = zwfl2 - zwfl0,
+                HAZ = zlen2 - zlen0,
+                HB = hg2 - ehg,
+                Platelets = platelet2 - eplatelet,
+                WBCs = wbc2 - ewbc,
+                Lymphocytes = lymph2 - elymph,
+                Neutrophils = neutrop2 - eneutrop)
+
+
+ModuleEigen_df <- combined_anthro_regression %>% 
+  dplyr::select(MUAC:Neutrophils)
+
+MinModuleSize10_ModuleEigen <- combined_anthro_regression
+
+MinModuleSize10_ModuleEigen <- MinModuleSize10_ModuleEigen %>% 
+  dplyr::mutate(case_recoded = case_when(case == "Case" ~ 1,
+                                         TRUE ~ 0))
+
+combined_anthro_regression$case <- factor(combined_anthro_regression$case,
+                                          levels = c("Case", "Control"))
+# 
+# combined_anthro_regression$case <- factor(combined_anthro_regression$case,
+#                                           levels = c("Case", "Control"))
+
+Adjustedmod_summaries <- list()  
+ 
+for (col in colnames(ModuleEigen_df)) {   
+
+  modules = MinModuleSize10_ModuleEigen[col]
+
+  Adjustedmod_summaries[[col]] <- lme4::glmer(case_recoded ~ modules[[col]] +
+                                                     +  sex + muac0 +
+                                                   agemonth + (1|site),
+                                              family = "binomial",
+                                                 data = MinModuleSize10_ModuleEigen)
+
+}
+ 
+coef_estimates <- list()
+ 
+for (col in colnames(ModuleEigen_df)) {
+
+  # Extract the fixed effects coefficients
+
+  fixed_effects_df <- broom.mixed::tidy(Adjustedmod_summaries[[col]])  #%>%  as.data.frame()
+
+  # Append the coefficient data frame to the list
+
+  coef_estimates[[col]] <- fixed_effects_df
+
+}
+ 
+# Combine the coefficient data frames into a single data frame
+
+Coefficient_etimate_df <- do.call(rbind, coef_estimates)
+ 
+Coefficient_etimate_df <- Coefficient_etimate_df %>% 
+  rownames_to_column(var = "Measurements")
+ 
+Coefficient_etimate_df <- Coefficient_etimate_df %>% 
+  dplyr::filter(term %in% "modules[[col]]")
+ 
+Coefficient_etimate_df_clean <- Coefficient_etimate_df %>%
+
+  separate_wider_delim(Measurements, delim = ".", 
+                       names = c("Measurements", "Status")) %>% 
+
+  dplyr::select(!c(Status, effect, group, term))
+ 
+ 
+Coefficient_etimate_df_clean$adjusted_p.value <- p.adjust(Coefficient_etimate_df_clean$p.value, method = "bonferroni") # fdr
+ 
+Coefficient_etimate_df_clean <- Coefficient_etimate_df_clean %>%
+
+  group_by(Measurements) %>%
+
+  mutate(
+
+    Lower = estimate - 1.96 * std.error,
+
+    Upper = estimate + 1.96 * std.error
+
+  ) %>%
+
+  ungroup()
+ 
+ 
+# Create a new column 'significance' based on the conditions
+
+Coefficient_etimate_df_clean$significance <- 
+
+  ifelse(Coefficient_etimate_df_clean$p.value <= 0.05, "Yes", "No")
+
+writexl::write_xlsx(Coefficient_etimate_df_clean,"../Figures/Tables/Baseline_characteristics_change_between_casesand_controls_muacAdjust.xlsx") 
+```
+
+
+### Survival analysis at Month 2
+*** Data preprocessing
+*** 4plex
+
+```{r fig.height=8, fig.width=12}
+
+luminex_4plex <- read_csv("../Raw_data/rawdata_4plex_m2.csv")
+
+baseline <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+
+luminex_4plex_cleaned_numeric <- luminex_4plex %>% 
+  column_to_rownames(var = "subjid") 
+
+## Log normalization and Autoscaling
+
+luminex_4plex_cleaned_numeric_log <- log(na.omit(luminex_4plex_cleaned_numeric))
+
+luminex_4plex_cleaned_numeric_log_auto_scale <- mdatools::prep.autoscale(as.matrix(luminex_4plex_cleaned_numeric_log), 
+center = TRUE, scale = TRUE)
+
+
+luminex_4plex_cleaned_numeric_log_auto_scale <- as.data.frame(luminex_4plex_cleaned_numeric_log_auto_scale)
+
+
+### Outlier replacement
+
+capOutlier <- function(x){
+
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = T)
+
+  caps <- quantile(x, probs=c(.1, .90), na.rm = T)
+
+  H <- 1.5 * IQR(x, na.rm = T)
+
+  x[x < (qnt[1] - H)] <- caps[1]
+
+  x[x > (qnt[2] + H)] <- caps[2]
+
+  return(x)
+
+}
+
+luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed <- luminex_4plex_cleaned_numeric_log_auto_scale %>% mutate_at(c(1:4), capOutlier)
+
+luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed <- luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed %>% 
+  rownames_to_column(var = "subjid")
+
+## Combine with baseline data
+baseline$subjid <- as.character(baseline$subjid)
+
+luminex_4plex_meta <- luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed %>% 
+  dplyr::left_join(baseline, by = "subjid")
+
+cases_id <- luminex_4plex_meta %>% dplyr::select(subjid, case)
+
+
+luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed <- luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed %>% 
+  dplyr::inner_join(., cases_id, by = "subjid")
+
+write_csv(luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed,"../Processed_data/luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed.csv")
+
+```
+
+** Hazard ratio MUAC adjusted - 4plex month 2
+```{r}
+luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed <- read_csv("../Processed_data/luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed.csv")
+
+baseline <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+
+enroldate <- read_csv("../Raw_data/CTX_James_dates_22042025.csv")
+
+colnames(enroldate) <- paste(colnames(enroldate), "T2E", sep = "_")
+
+baseline_time2death <- baseline %>% 
+  dplyr::left_join(., enroldate, join_by(subjid == subjid_T2E))
+
+
+baseline_time2death$enddate_T2E <- as.Date(baseline_time2death$enddate_T2E, format = "%d%b%Y")
+
+baseline_time2death$dateenrd_T2E <- as.Date(baseline_time2death$dateenrd_T2E, format = "%d%b%Y")
+
+write_csv(baseline_time2death,"../Processed_data/baseline_time2death.csv")
+
+
+baseline <- baseline_time2death %>% 
+  dplyr::select(subjid, agemonth, sex, site, arm, case, muac0, muac2, discdate, dateenrd_T2E, datem2, enddate_T2E)
+
+
+luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed <- luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed %>% dplyr::select(!case)
+
+
+baseline <- baseline %>% 
+  dplyr::mutate(case_recoded = case_when(case == "Case" ~ 1,
+                                         case == "Control" ~ 0))
+
+luminex_4plex_HR <- luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed %>% dplyr::left_join(., baseline, join_by(subjid))
+
+luminex_4plex_HR$time2_death <- as.numeric(difftime(luminex_4plex_HR$enddate_T2E, luminex_4plex_HR$datem2, units = "days"))
+
+write_csv(luminex_4plex_HR,"../Processed_data/Model_data/4plex_m2.csv")
+
+protein_cols <- luminex_4plex_HR %>% 
+  dplyr::select(`ADAMTS13-2`:`Thrombomodulin-2`)
+
+protein_data <- luminex_4plex_HR
+ 
+# Initialize lists to store results
+
+adjusted_results <- list()
+ 
+for (col in colnames(protein_cols)) {
+  protein = protein_data[col]
+  adjusted_results[[col]] <- coxph(Surv(time2_death, case_recoded) ~
+                         protein[[col]] + agemonth + muac0 +
+                           strata(sex, site, arm), data = protein_data)
+  
+  adjusted_results[[col]] <- tidy(adjusted_results[[col]])
+
+}
+ 
+adjusted_summary_df <- do.call(rbind,adjusted_results)
+
+adjusted_summary_df <- adjusted_summary_df %>%
+  dplyr::filter(term=='protein[[col]]') %>% 
+  rownames_to_column(var = "cytokines") %>% 
+   #slice(-c(1:5)) %>% 
+  dplyr::select(-term)
+
+adjusted_summary_df$estimate <- as.numeric(adjusted_summary_df$estimate)
+
+adjusted_summary_df$std.error <- as.numeric(adjusted_summary_df$std.error)
+
+
+adjusted_summary_df$p.value <- as.numeric(adjusted_summary_df$p.value)
+
+final_results_adjusted <- adjusted_summary_df %>% 
+
+  mutate(
+
+    HR = exp(estimate),
+
+    Lower = exp(estimate - 1.96 * std.error),
+
+    Upper = exp(estimate + 1.96 * std.error)
+
+  ) 
+
+final_results_adjusted$significance <- ifelse(final_results_adjusted$p.value <= 0.05, "Yes", "No")
+ 
+final_results_adjusted$cytokines <- sub("-2\\.1$", "", final_results_adjusted$cytokines)
+
+
+write_csv(final_results_adjusted,"../Processed_data/conditionalHR_adjusted_m2_4plex.csv")
+
+```
+
+** MUAC Unadjusted Hazard ratio - 4plex month 2
+```{r}
+luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed <- read_csv("../Processed_data/luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed.csv")
+
+baseline <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+
+enroldate <- read_csv("../Raw_data/CTX_James_dates_22042025.csv")
+
+colnames(enroldate) <- paste(colnames(enroldate), "T2E", sep = "_")
+
+baseline_time2death <- baseline %>% 
+  dplyr::left_join(., enroldate, join_by(subjid == subjid_T2E))
+
+
+baseline_time2death$enddate_T2E <- as.Date(baseline_time2death$enddate_T2E, format = "%d%b%Y")
+
+baseline_time2death$dateenrd_T2E <- as.Date(baseline_time2death$dateenrd_T2E, format = "%d%b%Y")
+
+write_csv(baseline_time2death,"../Processed_data/baseline_time2death.csv")
+
+
+baseline <- baseline_time2death %>% 
+  dplyr::select(subjid, agemonth, sex, site, arm, case, muac0, muac2, discdate, dateenrd_T2E, datem2, enddate_T2E)
+
+
+luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed <- luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed %>% dplyr::select(!case)
+
+
+baseline <- baseline %>% 
+  dplyr::mutate(case_recoded = case_when(case == "Case" ~ 1,
+                                         case == "Control" ~ 0))
+
+luminex_4plex_HR <- luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed %>% dplyr::left_join(., baseline, join_by(subjid))
+
+luminex_4plex_HR$time2_death <- as.numeric(difftime(luminex_4plex_HR$enddate_T2E, luminex_4plex_HR$datem2, units = "days"))
+
+write_csv(luminex_4plex_HR,"../Processed_data/Model_data/4plex_m2.csv")
+
+protein_cols <- luminex_4plex_HR %>% 
+  dplyr::select(`ADAMTS13-2`:`Thrombomodulin-2`)
+
+protein_data <- luminex_4plex_HR
+ 
+# Initialize lists to store results
+
+adjusted_results <- list()
+ 
+for (col in colnames(protein_cols)) {
+  protein = protein_data[col]
+  adjusted_results[[col]] <- coxph(Surv(time2_death, case_recoded) ~
+                         protein[[col]] + agemonth +
+                           strata(sex, site, arm), data = protein_data)
+  
+  adjusted_results[[col]] <- tidy(adjusted_results[[col]])
+
+}
+ 
+adjusted_summary_df <- do.call(rbind,adjusted_results)
+
+adjusted_summary_df <- adjusted_summary_df %>%
+  dplyr::filter(term=='protein[[col]]') %>% 
+  rownames_to_column(var = "cytokines") %>% 
+   #slice(-c(1:5)) %>% 
+  dplyr::select(-term)
+
+adjusted_summary_df$estimate <- as.numeric(adjusted_summary_df$estimate)
+
+adjusted_summary_df$std.error <- as.numeric(adjusted_summary_df$std.error)
+
+
+adjusted_summary_df$p.value <- as.numeric(adjusted_summary_df$p.value)
+
+final_results_adjusted <- adjusted_summary_df %>% 
+
+  mutate(
+
+    HR = exp(estimate),
+
+    Lower = exp(estimate - 1.96 * std.error),
+
+    Upper = exp(estimate + 1.96 * std.error)
+
+  ) 
+
+final_results_adjusted$significance <- ifelse(final_results_adjusted$p.value <= 0.05, "Yes", "No")
+ 
+final_results_adjusted$cytokines <- sub("-2\\.1$", "", final_results_adjusted$cytokines)
+
+
+write_csv(final_results_adjusted,"../Processed_data/UnadjustedMUAC_HR/conditionalHR_m2_4plex.csv")
+
+```
+
+** 29plex Preprocessing
+```{r}
+luminex_29plex <- read_csv("../Raw_data/rawdata_29plex_m2.csv")
+
+luminex_29plex$subjid <- as.character(luminex_29plex$subjid)
+
+
+luminex_29plex <- luminex_29plex %>% 
+  tibble::column_to_rownames(var = "subjid") 
+
+
+## Log normalization and Autoscaling
+
+luminex_29plex_data_numeric_log <- log(na.omit(luminex_29plex))
+
+luminex_29plex_data_numeric_log_auto_scale <- mdatools::prep.autoscale(as.matrix(luminex_29plex_data_numeric_log), 
+                         center = TRUE, scale = TRUE)
+
+
+luminex_29plex_data_numeric_log_auto_scale <- as.data.frame(luminex_29plex_data_numeric_log_auto_scale)
+
+
+## Replacing outliers
+
+capOutlier <- function(x){
+
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = T)
+
+  caps <- quantile(x, probs=c(.1, .90), na.rm = T)
+
+  H <- 1.5 * IQR(x, na.rm = T)
+
+  x[x < (qnt[1] - H)] <- caps[1]
+
+  x[x > (qnt[2] + H)] <- caps[2]
+
+  return(x)
+
+}
+
+luminex_29plex_data_numeric_log_auto_scale_Outliers <- luminex_29plex_data_numeric_log_auto_scale %>% mutate_at(c(1:29), capOutlier)
+
+
+luminex_29plex_data_numeric_log_auto_scale_Outliers <- luminex_29plex_data_numeric_log_auto_scale_Outliers %>% 
+  rownames_to_column(var = "subjid")
+
+cases_id <- baseline %>% dplyr::select(subjid,case)
+
+cases_id$subjid <- as.character(cases_id$subjid)
+
+
+luminex_29plex_data_numeric_log_auto_scale_Outliers <- luminex_29plex_data_numeric_log_auto_scale_Outliers %>% 
+  dplyr::inner_join(., cases_id, by = "subjid")
+
+case <- luminex_29plex_data_numeric_log_auto_scale_Outliers$case
+
+write_csv(luminex_29plex_data_numeric_log_auto_scale_Outliers,"../Processed_data/luminex_29plex_data_numeric_log_auto_scale_Outliers.csv")
+
+
+```
+
+** MUAC adjusted model
+```{r}
+
+baseline_time2death <- read_csv("../Processed_data/baseline_time2death.csv")
+
+baseline <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+
+luminex_29plex_data_numeric_log_auto_scale_Outliers <- read_csv("../Processed_data/Luminex_29plex_data_numeric_log_auto_scale_Outliers.csv")
+
+luminex_29plex_data_numeric_log_auto_scale_Outliers <- luminex_29plex_data_numeric_log_auto_scale_Outliers %>% dplyr::select(!c(case,`IL-3-2`))
+
+baseline <- baseline_time2death %>% 
+  dplyr::select(subjid, agemonth, sex, site, arm, case, discdate, muac0, dateenrd_T2E, datem2, enddate_T2E)
+
+baseline <- baseline %>% 
+  dplyr::mutate(case_recoded = case_when(case == "Case" ~ 1,
+                                         case == "Control" ~ 0))
+
+luminex_29plex_HR <- luminex_29plex_data_numeric_log_auto_scale_Outliers %>% dplyr::left_join(., baseline, join_by(subjid))
+
+luminex_29plex_HR$subjid <- as.character(luminex_29plex_HR$subjid)
+
+
+baseline$subjid <- as.character(baseline$subjid)
+
+luminex_29plex_HR$time2_death <- as.numeric(difftime(luminex_29plex_HR$enddate_T2E, luminex_29plex_HR$datem2, units = "days"))
+
+write_csv(luminex_29plex_HR,"../Processed_data/Model_data/29plex_m2.csv")
+
+protein_cols <- luminex_29plex_HR %>% 
+  dplyr::select(`EGF-2`:`VEGF-2`)
+
+protein_data <- luminex_29plex_HR
+ 
+# Initialize lists to store results
+
+adjusted_results <- list()
+ 
+for (col in colnames(protein_cols)) {
+  protein = protein_data[col]
+  adjusted_results[[col]] <- coxph(Surv(time2_death, case_recoded) ~
+                         protein[[col]] + agemonth + muac0 +
+                           strata(sex, site, arm), data = protein_data)
+  
+  adjusted_results[[col]] <- tidy(adjusted_results[[col]])
+
+}
+ 
+adjusted_summary_df <- do.call(rbind,adjusted_results)
+
+adjusted_summary_df <- adjusted_summary_df %>%
+  dplyr::filter(term=='protein[[col]]') %>% 
+  rownames_to_column(var = "cytokines") %>% 
+   #slice(-c(1:5)) %>% 
+  dplyr::select(-term)
+
+adjusted_summary_df$estimate <- as.numeric(adjusted_summary_df$estimate)
+
+adjusted_summary_df$std.error <- as.numeric(adjusted_summary_df$std.error)
+
+
+adjusted_summary_df$p.value <- as.numeric(adjusted_summary_df$p.value)
+
+final_results_adjusted1 <- adjusted_summary_df %>% 
+
+  mutate(
+
+    HR = exp(estimate),
+
+    Lower = exp(estimate - 1.96 * std.error),
+
+    Upper = exp(estimate + 1.96 * std.error)
+
+  ) 
+
+final_results_adjusted$significance <- ifelse(final_results_adjusted$p.value <= 0.05, "Yes", "No")
+ 
+final_results_adjusted$cytokines <- sub("-2\\.1$", "", final_results_adjusted$cytokines)
+
+final_results_adjusted <- final_results_adjusted %>%
+  dplyr::mutate(cytokines = case_when(
+    cytokines == "IFNa2" ~ "IFNα2",
+    cytokines == "IL-1a" ~ "IL-1α",
+    cytokines == "IL-1b" ~ "IL-1β",
+    cytokines == "TNFa" ~ "TNFα",
+    cytokines == "MIP-1a" ~ "MIP-1α",
+    cytokines == "TNFb" ~ "TNFβ",
+    cytokines == "MIP-1b" ~ "MIP-1β",
+    cytokines == "IFNg" ~ "IFN-γ",
+    cytokines == "IL10" ~ "IL-10",
+    TRUE ~ cytokines
+  ))
+ 
+
+write_csv(final_results_adjusted,"../Processed_data/conditionalHR_adjusted_m2_29plex.csv")
+```
+
+
+** Not adjusted for MUAC
+** 29PLEX
+```{r}
+
+baseline_time2death <- read_csv("../Processed_data/baseline_time2death.csv")
+
+baseline <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+
+luminex_29plex_data_numeric_log_auto_scale_Outliers <- read_csv("../Processed_data/Luminex_29plex_data_numeric_log_auto_scale_Outliers.csv")
+
+luminex_29plex_data_numeric_log_auto_scale_Outliers <- luminex_29plex_data_numeric_log_auto_scale_Outliers %>% dplyr::select(!c(case,`IL-3-2`))
+
+baseline <- baseline_time2death %>% 
+  dplyr::select(subjid, agemonth, sex, site, arm, case, discdate, muac0, dateenrd_T2E, datem2, enddate_T2E)
+
+baseline <- baseline %>% 
+  dplyr::mutate(case_recoded = case_when(case == "Case" ~ 1,
+                                         case == "Control" ~ 0))
+
+luminex_29plex_HR <- luminex_29plex_data_numeric_log_auto_scale_Outliers %>% dplyr::left_join(., baseline, join_by(subjid))
+
+luminex_29plex_HR$subjid <- as.character(luminex_29plex_HR$subjid)
+
+
+baseline$subjid <- as.character(baseline$subjid)
+
+luminex_29plex_HR$time2_death <- as.numeric(difftime(luminex_29plex_HR$enddate_T2E, luminex_29plex_HR$datem2, units = "days"))
+
+write_csv(luminex_29plex_HR,"../Processed_data/Model_data/29plex_m2.csv")
+
+protein_cols <- luminex_29plex_HR %>% 
+  dplyr::select(`EGF-2`:`VEGF-2`)
+
+protein_data <- luminex_29plex_HR
+ 
+# Initialize lists to store results
+
+adjusted_results <- list()
+ 
+for (col in colnames(protein_cols)) {
+  protein = protein_data[col]
+  adjusted_results[[col]] <- coxph(Surv(time2_death, case_recoded) ~
+                         protein[[col]] + agemonth +
+                           strata(sex, site, arm), data = protein_data)
+  
+  adjusted_results[[col]] <- tidy(adjusted_results[[col]])
+
+}
+ 
+adjusted_summary_df <- do.call(rbind,adjusted_results)
+
+adjusted_summary_df <- adjusted_summary_df %>%
+  dplyr::filter(term=='protein[[col]]') %>% 
+  rownames_to_column(var = "cytokines") %>% 
+   #slice(-c(1:5)) %>% 
+  dplyr::select(-term)
+
+adjusted_summary_df$estimate <- as.numeric(adjusted_summary_df$estimate)
+
+adjusted_summary_df$std.error <- as.numeric(adjusted_summary_df$std.error)
+
+
+adjusted_summary_df$p.value <- as.numeric(adjusted_summary_df$p.value)
+
+final_results_adjusted1 <- adjusted_summary_df %>% 
+
+  mutate(
+
+    HR = exp(estimate),
+
+    Lower = exp(estimate - 1.96 * std.error),
+
+    Upper = exp(estimate + 1.96 * std.error)
+
+  ) 
+
+final_results_adjusted$significance <- ifelse(final_results_adjusted$p.value <= 0.05, "Yes", "No")
+ 
+final_results_adjusted$cytokines <- sub("-2\\.1$", "", final_results_adjusted$cytokines)
+
+final_results_adjusted <- final_results_adjusted %>%
+  dplyr::mutate(cytokines = case_when(
+    cytokines == "IFNa2" ~ "IFNα2",
+    cytokines == "IL-1a" ~ "IL-1α",
+    cytokines == "IL-1b" ~ "IL-1β",
+    cytokines == "TNFa" ~ "TNFα",
+    cytokines == "MIP-1a" ~ "MIP-1α",
+    cytokines == "TNFb" ~ "TNFβ",
+    cytokines == "MIP-1b" ~ "MIP-1β",
+    cytokines == "IFNg" ~ "IFN-γ",
+    cytokines == "IL10" ~ "IL-10",
+    TRUE ~ cytokines
+  ))
+ 
+
+write_csv(final_results_adjusted,"../Processed_data/UnadjustedMUAC_HR/conditionalHR_m2_29plex.csv")
+```
+
+** Proteomics Month 2
+```{r}
+proteomics_file <- read_csv("../Raw_data/LPDM_Protomics_24092024.csv")
+proteingroup <- read.delim("../Raw_data/proteinGroups_LPDM_15112021.txt")
+
+proteomics_file_m2 <- proteomics_file %>% dplyr::filter(timepoint=="M2")
+
+proteomics_file_m2 <- proteomics_file_m2 %>% dplyr::select(-c(timepoint,group,...1))
+  
+proteomics_file_m2 <- proteomics_file_m2 %>% 
+  dplyr::select(!contains(c("REV__","CON__")))
+
+protein_group_genenames <- proteingroup %>% dplyr::select(Protein.IDs,Gene.names)
+
+protein_group_genenames$Protein.IDs <- gsub(";.*", "", protein_group_genenames$Protein.IDs)
+
+protein_group_genenames$Gene.names <- gsub(";.*", "", protein_group_genenames$Gene.names)
+
+protein_group_genenames$Gene.names <- na_if(protein_group_genenames$Gene.names, '')
+
+protein_group_genenames <- protein_group_genenames %>% dplyr::mutate(Gene.names=coalesce(protein_group_genenames$Gene.names,
+                                  protein_group_genenames$Protein.IDs))
+
+proteomics_file_m2 <- proteomics_file_m2 %>% slice(-20) ##participant 671, occured twice and one was removed
+
+#proteomics_file_m2 <- proteomics_file_m2 %>% column_to_rownames(var="record_id")
+
+proteomics_file_uniprotID <- data.frame(Protein.IDs=colnames(proteomics_file_m2))
+                                        
+
+proteomics_file_uniprotID <- proteomics_file_uniprotID %>% left_join(.,protein_group_genenames,join_by(Protein.IDs))
+
+
+#colnames(proteomics_file_m2) <- proteomics_file_uniprotID$Gene.names
+
+#proteomics_file_m2 <- proteomics_file_m2 %>% rownames_to_column(var="record_id")
+metadata <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+proteingroup_metadata <- proteomics_file_m2 %>% 
+  dplyr::left_join(.,metadata, join_by(record_id==subjid))
+
+
+## Subset month 2 data
+proteingroup_metadata_m2 <- proteingroup_metadata
+
+ write_csv(proteingroup_metadata_m2,"../Processed_data/proteingroup_metadata_m2_clean.csv")
+ ## Filtering 80% missing values
+ 
+ ##Filtering missing values. Proteins missing in 80% of the samples were filtered out. 
+ 
+
+## Filtering missing data with EdgeR
+
+proteingroup_metadata_m2_intensities <- proteingroup_metadata_m2 %>% 
+  dplyr::select(A0A1Q1PRB1:V9HWI6)
+
+
+edgeR_object<-DGEList(counts = as.matrix(t(proteingroup_metadata_m2_intensities)),samples = proteingroup_metadata_m2,group = proteingroup_metadata_m2$case,remove.zeros = T)
+
+keep<-filterByExpr(edgeR_object,min.count = 0.1, 
+                   min.total.count = 0.1, 
+                   large.n = 10, min.prop = 0.8)
+edgeR_object<-edgeR_object[keep,]
+
+
+filtered_proteomics_data <- as.data.frame(t(edgeR_object[["counts"]]))
+
+
+filtered_sample_data <- as.data.frame(edgeR_object[["samples"]])
+
+## Imputation
+
+ ### Replacing 0 with NA
+
+filtered_proteomics_data[filtered_proteomics_data==0] <- NA
+
+
+## Imputation using KNN
+
+imp_knn = impute.knn(as.matrix(filtered_proteomics_data,
+                     k = 10, rowmax = 0.5, colmax = 0.8,
+                     maxp = 1500, rng.seed=362436069))
+### Accessing the data
+filtered_proteomics_data_knn <- as.data.frame(imp_knn$data) 
+
+
+## Normalization and replacing outliers
+ ### Log normalization
+protein_data_arranged_m2_log <- log(na.omit(filtered_proteomics_data_knn))
+
+protein_data_arranged_m2_log_auto_scale <- mdatools::prep.autoscale(as.matrix(protein_data_arranged_m2_log),                                                           center = TRUE, scale = TRUE)
+
+
+protein_data_arranged_m2_log_auto_scale <- as.data.frame(protein_data_arranged_m2_log_auto_scale)
+
+ ## Replacing outliers 
+
+capOutlier <- function(x){
+
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = T)
+
+  caps <- quantile(x, probs=c(.1, .90), na.rm = T)
+
+  H <- 1.5 * IQR(x, na.rm = T)
+
+  x[x < (qnt[1] - H)] <- caps[1]
+
+  x[x > (qnt[2] + H)] <- caps[2]
+
+  return(x)
+
+}
+
+protein_data_arranged_m2_log_auto_scale_Outliers_removed <- protein_data_arranged_m2_log_auto_scale %>% mutate_at(c(1:374), capOutlier)
+
+write_csv(protein_data_arranged_m2_log_auto_scale_Outliers_removed,"../Processed_data/protein_data_arranged_m2_log_auto_scale_Outliers_removed.csv")
+```
+
+** MUAC adjusted proteins
+```{r}
+protein_data_arranged_m2_log_auto_scale_Outliers_removed <- read_csv("../Processed_data/protein_data_arranged_m2_log_auto_scale_Outliers_removed_cleanJN.csv")
+
+proteingroup_metadata_m2 <- read_csv("../Processed_data/proteingroup_metadata_m2_clean.csv")
+
+protein_data_arranged_m2_log_auto_scale_Outliers_removed$subjid <- 
+  proteingroup_metadata_m2$record_id
+
+protein_data_arranged_m2_log_auto_scale_Outliers_removed <- 
+  protein_data_arranged_m2_log_auto_scale_Outliers_removed %>% 
+  dplyr::relocate(subjid,.before = A0A024CIM4)
+
+baseline_time2death <- read_csv("../Processed_data/baseline_time2death.csv")
+
+baseline <- baseline_time2death %>% 
+  dplyr::select(subjid, agemonth, sex, site, arm, muac0, case, discdate, 
+                dateenrd_T2E, datem2, enddate_T2E)
+
+baseline <- baseline %>% 
+  dplyr::mutate(case_recoded = case_when(case == "Case" ~ 1,
+                                         case == "Control" ~ 0))
+
+proteomics_HR <- protein_data_arranged_m2_log_auto_scale_Outliers_removed %>% dplyr::left_join(., baseline, join_by(subjid))
+
+proteomics_HR$time2_death <- as.numeric(difftime(proteomics_HR$enddate_T2E, 
+                    proteomics_HR$datem2, units = "days"))
+
+#write_csv(proteomics_HR,"../Processed_data/Model_data/proteomics_m2.csv")
+###getting gene names
+proteingroup <- read.delim("../Raw_data/proteinGroups_LPDM_15112021.txt")
+proteomics_file_uniprotID <- proteingroup %>% 
+  dplyr::select(c(Gene.names,Protein.IDs))
+
+proteomics_file_uniprotID$Protein.IDs <- gsub(";.*", "", proteomics_file_uniprotID$Protein.IDs)
+
+proteomics_file_uniprotID$Gene.names <- gsub(";.*", "", proteomics_file_uniprotID$Gene.names)
+
+proteomics_file_uniprotID$Gene.names <- na_if(proteomics_file_uniprotID$Gene.names, '')
+
+proteomics_file_uniprotID <- proteomics_file_uniprotID %>% dplyr::mutate(Gene.names=coalesce(proteomics_file_uniprotID$Gene.names,
+                                  proteomics_file_uniprotID$Protein.IDs))
+
+df2_split <- proteomics_file_uniprotID
+
+protein_cols <- proteomics_HR %>% 
+  dplyr::select(A0A024CIM4:V9HWI6)
+
+protein_data <- proteomics_HR
+ 
+# Initialize lists to store results
+
+
+
+adjusted_summaryProt <- list()
+
+adjusted_results <- list()
+
+# protein_data$case_recoded <- as.factor(protein_data$case_recoded)
+ 
+for (col in colnames(protein_cols)) {
+  protein = protein_data[col]
+  adjusted_results[[col]] <- coxph(Surv(time2_death, case_recoded) ~
+                         protein[[col]] + agemonth + muac0 +
+                           strata(sex, site, arm), data = protein_data)
+  
+  adjusted_summaryProt[[col]] <- tidy(adjusted_results[[col]])
+
+}
+ 
+adjusted_summary_dfProt <- do.call(rbind,adjusted_summaryProt )
+
+adjusted_summary_dfProt <- adjusted_summary_dfProt %>% 
+  rownames_to_column(var = "cytokines") # %>% 
+  # slice(-c(1:5)) %>% 
+  # dplyr::select(-term)
+
+adjusted_summary_dfProt <- adjusted_summary_dfProt %>% 
+  dplyr::filter(term %in% "protein[[col]]") %>% 
+  dplyr::select(-term)
+
+adjusted_summary_dfProt$cytokines <- gsub(".1$", "", adjusted_summary_dfProt$cytokines)
+ 
+adjusted_summary_dfProt$estimate <- as.numeric(adjusted_summary_dfProt$estimate)
+
+adjusted_summary_dfProt$std.error <- as.numeric(adjusted_summary_dfProt$std.error)
+
+
+adjusted_summary_dfProt$p.value <- as.numeric(adjusted_summary_dfProt$p.value)
+
+final_results_adjusted <- adjusted_summary_dfProt %>% 
+
+  mutate(
+
+    HR = exp(estimate),
+
+    Lower = exp(estimate - 1.96 * std.error),
+
+    Upper = exp(estimate + 1.96 * std.error)
+
+  ) 
+
+
+final_results_adjusted$significance <- ifelse(final_results_adjusted$p.value <= 0.05, "Yes", "No")
+
+final_results_adjusted <- final_results_adjusted %>% 
+  dplyr::left_join(., df2_split, join_by(cytokines == Protein.IDs))
+
+ final_results_adjusted <- final_results_adjusted %>% 
+   dplyr::relocate(Gene.names, .after = cytokines)
+ 
+
+#write_csv(final_results_adjusted,"../Processed_data/conditionalHR_adjusted_proteinm2.csv")
+
+
+
+```
+
+** MUAC Unadjusted proteins
+```{r}
+protein_data_arranged_m2_log_auto_scale_Outliers_removed <- read_csv("../Processed_data/protein_data_arranged_m2_log_auto_scale_Outliers_removed_cleanJN.csv")
+
+proteingroup_metadata_m2 <- read_csv("../Processed_data/proteingroup_metadata_m2_clean.csv")
+
+protein_data_arranged_m2_log_auto_scale_Outliers_removed$subjid <- 
+  proteingroup_metadata_m2$record_id
+
+protein_data_arranged_m2_log_auto_scale_Outliers_removed <- 
+  protein_data_arranged_m2_log_auto_scale_Outliers_removed %>% 
+  dplyr::relocate(subjid,.before = A0A024CIM4)
+
+baseline_time2death <- read_csv("../Processed_data/baseline_time2death.csv")
+
+baseline <- baseline_time2death %>% 
+  dplyr::select(subjid, agemonth, sex, site, arm, muac0, case, discdate, 
+                dateenrd_T2E, datem2, enddate_T2E)
+
+baseline <- baseline %>% 
+  dplyr::mutate(case_recoded = case_when(case == "Case" ~ 1,
+                                         case == "Control" ~ 0))
+
+proteomics_HR <- protein_data_arranged_m2_log_auto_scale_Outliers_removed %>% dplyr::left_join(., baseline, join_by(subjid))
+
+proteomics_HR$time2_death <- as.numeric(difftime(proteomics_HR$enddate_T2E, 
+                    proteomics_HR$datem2, units = "days"))
+
+#write_csv(proteomics_HR,"../Processed_data/Model_data/proteomics_m2.csv")
+###getting gene names
+proteingroup <- read.delim("../Raw_data/proteinGroups_LPDM_15112021.txt")
+proteomics_file_uniprotID <- proteingroup %>% 
+  dplyr::select(c(Gene.names,Protein.IDs))
+
+proteomics_file_uniprotID$Protein.IDs <- gsub(";.*", "", proteomics_file_uniprotID$Protein.IDs)
+
+proteomics_file_uniprotID$Gene.names <- gsub(";.*", "", proteomics_file_uniprotID$Gene.names)
+
+proteomics_file_uniprotID$Gene.names <- na_if(proteomics_file_uniprotID$Gene.names, '')
+
+proteomics_file_uniprotID <- proteomics_file_uniprotID %>% dplyr::mutate(Gene.names=coalesce(proteomics_file_uniprotID$Gene.names,
+                                  proteomics_file_uniprotID$Protein.IDs))
+
+df2_split <- proteomics_file_uniprotID
+
+protein_cols <- proteomics_HR %>% 
+  dplyr::select(A0A024CIM4:V9HWI6)
+
+protein_data <- proteomics_HR
+ 
+# Initialize lists to store results
+
+
+
+adjusted_summaryProt <- list()
+
+adjusted_results <- list()
+
+# protein_data$case_recoded <- as.factor(protein_data$case_recoded)
+ 
+for (col in colnames(protein_cols)) {
+  protein = protein_data[col]
+  adjusted_results[[col]] <- coxph(Surv(time2_death, case_recoded) ~
+                         protein[[col]] + agemonth +
+                           strata(sex, site, arm), data = protein_data)
+  
+  adjusted_summaryProt[[col]] <- tidy(adjusted_results[[col]])
+
+}
+ 
+adjusted_summary_dfProt <- do.call(rbind,adjusted_summaryProt )
+
+adjusted_summary_dfProt <- adjusted_summary_dfProt %>% 
+  rownames_to_column(var = "cytokines") # %>% 
+  # slice(-c(1:5)) %>% 
+  # dplyr::select(-term)
+
+adjusted_summary_dfProt <- adjusted_summary_dfProt %>% 
+  dplyr::filter(term %in% "protein[[col]]") %>% 
+  dplyr::select(-term)
+
+adjusted_summary_dfProt$cytokines <- gsub(".1$", "", adjusted_summary_dfProt$cytokines)
+ 
+adjusted_summary_dfProt$estimate <- as.numeric(adjusted_summary_dfProt$estimate)
+
+adjusted_summary_dfProt$std.error <- as.numeric(adjusted_summary_dfProt$std.error)
+
+
+adjusted_summary_dfProt$p.value <- as.numeric(adjusted_summary_dfProt$p.value)
+
+final_results_adjusted <- adjusted_summary_dfProt %>% 
+
+  mutate(
+
+    HR = exp(estimate),
+
+    Lower = exp(estimate - 1.96 * std.error),
+
+    Upper = exp(estimate + 1.96 * std.error)
+
+  ) 
+
+
+final_results_adjusted$significance <- ifelse(final_results_adjusted$p.value <= 0.05, "Yes", "No")
+
+final_results_adjusted <- final_results_adjusted %>% 
+  dplyr::left_join(., df2_split, join_by(cytokines == Protein.IDs))
+
+ final_results_adjusted <- final_results_adjusted %>% 
+   dplyr::relocate(Gene.names, .after = cytokines)
+ 
+
+write_csv(final_results_adjusted,"../Processed_data/UnadjustedMUAC_HR/conditionalHR_proteinm2.csv")
+
+```
+
+
+** Hematological factors MUAC adjusted - Month2
+
+```{r}
+baseline_time2death <- read_csv("../Processed_data/baseline_time2death.csv")
+
+baseline_hema <- baseline_time2death %>%
+  dplyr::mutate(case_recoded = case_when(case=="Case"~1,case=="Control"~0)) 
+
+hematological_data <- baseline_hema %>% 
+  dplyr::select(c(subjid, agemonth, sex, site, arm, case,muac0,hg2, lymph2, neutrop2, platelet2, wbc2, discdate, dateenrd_T2E,datem2, enddate_T2E, case_recoded))
+
+hematological_data$time2_death <- as.numeric(difftime(hematological_data$dateenrd_T2E, hematological_data$datem2, units = "days"))
+#%>% na.omit()
+
+#################################################################################
+
+hematological_data_only <- hematological_data %>% 
+  dplyr::select(subjid, hg2, lymph2, neutrop2, platelet2, wbc2,) %>% 
+  column_to_rownames(var = "subjid")
+  
+hematological_data_only_log <- log(na.omit(hematological_data_only)) %>% as.matrix()
+
+hematological_data_only_log_scaled <- mdatools::prep.autoscale(hematological_data_only_log,                                                           center = TRUE, scale = TRUE)
+
+
+hematological_data_only_log_scaled_df <- as.data.frame(hematological_data_only_log_scaled) %>% 
+  rownames_to_column(var = "subjid")
+
+hematological_data_HR <- hematological_data %>% 
+  dplyr::select(!c(hg2, lymph2, neutrop2, platelet2, wbc2,))
+
+
+hematological_data_HR$subjid <- as.character(hematological_data_HR$subjid)
+
+hematological_data_HR <-hematological_data_only_log_scaled_df   %>% 
+  dplyr::left_join(., hematological_data_HR,
+                   join_by(subjid))
+
+hematological_data_HR <- hematological_data_HR %>% 
+  dplyr::mutate(Neutr_Lymph_ratio=neutrop2/lymph2)
+
+############################################
+
+hematological_data_HR <- hematological_data_HR %>% 
+  dplyr::rename(Haemoglobin = hg2,Lymphocytes = lymph2, 
+                Neutrophils = neutrop2, Platelets = platelet2,
+                WBCs = wbc2, NLR = Neutr_Lymph_ratio)
+
+
+protein_cols <- hematological_data_HR %>% 
+  dplyr::select(Haemoglobin, Lymphocytes, Neutrophils, Platelets, WBCs, NLR)
+
+
+
+protein_data <- hematological_data_HR
+
+
+adjusted_results <- list()
+ 
+for (col in colnames(protein_cols)) {
+  protein = protein_data[col]
+  adjusted_results[[col]] <- coxph(Surv(time2_death, case_recoded) ~
+                         protein[[col]] + agemonth + muac0 +
+                           strata(sex, site, arm), data = protein_data)
+  
+  adjusted_results[[col]] <- tidy(adjusted_results[[col]])
+
+}
+ 
+adjusted_summary_df <- do.call(rbind,adjusted_results)
+
+adjusted_summary_df <- adjusted_summary_df %>%
+  dplyr::filter(term=='protein[[col]]') %>% 
+  rownames_to_column(var = "cytokines") %>%
+  dplyr::select(-term)
+
+adjusted_summary_df$estimate <- as.numeric(adjusted_summary_df$estimate)
+
+adjusted_summary_df$std.error <- as.numeric(adjusted_summary_df$std.error)
+
+
+adjusted_summary_df$p.value <- as.numeric(adjusted_summary_df$p.value)
+
+final_results_adjusted <- adjusted_summary_df %>% 
+
+  mutate(
+
+    HR = exp(estimate),
+
+    Lower = exp(estimate - 1.96 * std.error),
+
+    Upper = exp(estimate + 1.96 * std.error)
+
+  ) 
+
+final_results_adjusted$significance <- ifelse(final_results_adjusted$p.value <= 0.05, "Yes", "No")
+
+
+final_results_adjusted$cytokines <- sub(".1$", "", final_results_adjusted$cytokines)
+
+write_csv(final_results_adjusted,"../Processed_data/conditionalHR_adjusted_M2_haematology.csv")
+
+```
+
+**  MUAC unadjusted Hematological factors - Month2
+
+```{r}
+baseline_time2death <- read_csv("../Processed_data/baseline_time2death.csv")
+
+baseline_hema <- baseline_time2death %>%
+  dplyr::mutate(case_recoded = case_when(case=="Case"~1,case=="Control"~0)) 
+
+hematological_data <- baseline_hema %>% 
+  dplyr::select(c(subjid, agemonth, sex, site, arm, case,muac0,hg2, lymph2, neutrop2, platelet2, wbc2, discdate, dateenrd_T2E,datem2, enddate_T2E, case_recoded))
+
+hematological_data$time2_death <- as.numeric(difftime(hematological_data$dateenrd_T2E, hematological_data$datem2, units = "days"))
+#%>% na.omit()
+
+#################################################################################
+
+hematological_data_only <- hematological_data %>% 
+  dplyr::select(subjid, hg2, lymph2, neutrop2, platelet2, wbc2,) %>% 
+  column_to_rownames(var = "subjid")
+  
+hematological_data_only_log <- log(na.omit(hematological_data_only)) %>% as.matrix()
+
+hematological_data_only_log_scaled <- mdatools::prep.autoscale(hematological_data_only_log,                                                           center = TRUE, scale = TRUE)
+
+
+hematological_data_only_log_scaled_df <- as.data.frame(hematological_data_only_log_scaled) %>% 
+  rownames_to_column(var = "subjid")
+
+hematological_data_HR <- hematological_data %>% 
+  dplyr::select(!c(hg2, lymph2, neutrop2, platelet2, wbc2,))
+
+
+hematological_data_HR$subjid <- as.character(hematological_data_HR$subjid)
+
+hematological_data_HR <-hematological_data_only_log_scaled_df   %>% 
+  dplyr::left_join(., hematological_data_HR,
+                   join_by(subjid))
+
+hematological_data_HR <- hematological_data_HR %>% 
+  dplyr::mutate(Neutr_Lymph_ratio=neutrop2/lymph2)
+
+############################################
+
+hematological_data_HR <- hematological_data_HR %>% 
+  dplyr::rename(Haemoglobin = hg2,Lymphocytes = lymph2, 
+                Neutrophils = neutrop2, Platelets = platelet2,
+                WBCs = wbc2, NLR = Neutr_Lymph_ratio)
+
+
+protein_cols <- hematological_data_HR %>% 
+  dplyr::select(Haemoglobin, Lymphocytes, Neutrophils, Platelets, WBCs, NLR)
+
+
+
+protein_data <- hematological_data_HR
+
+
+adjusted_results <- list()
+ 
+for (col in colnames(protein_cols)) {
+  protein = protein_data[col]
+  adjusted_results[[col]] <- coxph(Surv(time2_death, case_recoded) ~
+                         protein[[col]] + agemonth + 
+                           strata(sex, site, arm), data = protein_data)
+  
+  adjusted_results[[col]] <- tidy(adjusted_results[[col]])
+
+}
+ 
+adjusted_summary_df <- do.call(rbind,adjusted_results)
+
+adjusted_summary_df <- adjusted_summary_df %>%
+  dplyr::filter(term=='protein[[col]]') %>% 
+  rownames_to_column(var = "cytokines") %>%
+  dplyr::select(-term)
+
+adjusted_summary_df$estimate <- as.numeric(adjusted_summary_df$estimate)
+
+adjusted_summary_df$std.error <- as.numeric(adjusted_summary_df$std.error)
+
+
+adjusted_summary_df$p.value <- as.numeric(adjusted_summary_df$p.value)
+
+final_results_adjusted <- adjusted_summary_df %>% 
+
+  mutate(
+
+    HR = exp(estimate),
+
+    Lower = exp(estimate - 1.96 * std.error),
+
+    Upper = exp(estimate + 1.96 * std.error)
+
+  ) 
+
+final_results_adjusted$significance <- ifelse(final_results_adjusted$p.value <= 0.05, "Yes", "No")
+
+
+final_results_adjusted$cytokines <- sub(".1$", "", final_results_adjusted$cytokines)
+
+write_csv(final_results_adjusted,"../Processed_data/UnadjustedMUAC_HR/conditionalHR_M2_haematology.csv")
+
+```
+
+### Survival analysis at Enrolment
+
+```{r}
+set.seed(10)
+proteomics_file <- read_csv("../Raw_data/LPDM_Protomics_24092024.csv")
+
+proteomics_file_E <- proteomics_file %>% dplyr::filter(timepoint=="E")
+
+##Case (60) Control (32)
+proteomics_file_E <- proteomics_file_E %>% dplyr::select(-c(timepoint,group,...1))
+  
+proteomics_file_E <- proteomics_file_E %>% 
+  dplyr::select(!contains(c("REV__","CON__")))
+proteingroup <- read.delim("../Raw_data/proteinGroups_LPDM_15112021.txt")
+
+protein_group_genenames <- proteingroup %>% dplyr::select(Protein.IDs,Gene.names)
+
+protein_group_genenames$Protein.IDs <- gsub(";.*", "", protein_group_genenames$Protein.IDs)
+
+protein_group_genenames$Gene.names <- gsub(";.*", "", protein_group_genenames$Gene.names)
+
+protein_group_genenames$Gene.names <- na_if(protein_group_genenames$Gene.names, '')
+
+protein_group_genenames <- protein_group_genenames %>% dplyr::mutate(Gene.names=coalesce(protein_group_genenames$Gene.names,
+                                  protein_group_genenames$Protein.IDs))
+df2_split <- protein_group_genenames
+
+#proteomics_file_m2 <- proteomics_file_m2 %>% column_to_rownames(var="record_id")
+
+proteomics_file_uniprotID <- data.frame(Protein.IDs=colnames(proteomics_file_E)) %>%
+  dplyr::filter(Protein.IDs!="record_id")
+                                        
+
+proteomics_file_uniprotID <- proteomics_file_uniprotID %>% left_join(.,protein_group_genenames,join_by(Protein.IDs))
+
+
+#colnames(proteomics_file_m2) <- proteomics_file_uniprotID$Gene.names
+
+#proteomics_file_m2 <- proteomics_file_m2 %>% rownames_to_column(var="record_id")
+
+metadata <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+
+
+proteingroup_metadata <- proteomics_file_E %>% 
+  dplyr::left_join(.,metadata, join_by(record_id==subjid))
+
+
+## Subset month Enrolment data
+proteingroup_metadata_E <- proteingroup_metadata
+
+#write_csv(proteingroup_metadata_E,"proteingroup_metadata_E_cleanJN.csv")
+
+ ## Filtering 80% missing values
+ 
+ ##Filtering missing values. Proteins missing in 80% of the samples were filtered out. 
+ 
+#proteingroup_metadata_E <- read_csv("proteingroup_metadata_E_cleanJN.csv")
+
+## Filtering missing data with EdgeR
+proteingroup_metadata_E <- proteingroup_metadata_E %>% 
+  dplyr::slice(-49)
+
+proteingroup_metadata_E <- proteingroup_metadata_E %>%
+  column_to_rownames(var = "record_id")
+
+proteingroup_metadata_E_intensities <- proteingroup_metadata_E %>% 
+  dplyr::select(A0A1Q1PRB1:V9HWI6)
+
+
+edgeR_object <- edgeR::DGEList(counts = as.matrix(t(proteingroup_metadata_E_intensities)),samples = proteingroup_metadata_E,group = proteingroup_metadata_E$case,remove.zeros = T)
+
+keep <- filterByExpr(edgeR_object,min.count = 0.1, 
+                   min.total.count = 0.1, 
+                   large.n = 10, min.prop = 0.8)
+edgeR_object<-edgeR_object[keep,]
+
+
+filtered_proteomics_data <- as.data.frame(t(edgeR_object[["counts"]]))
+
+
+filtered_sample_data <- as.data.frame(edgeR_object[["samples"]])
+
+# filtered_sample_data <- filtered_sample_data %>% 
+#   dplyr::slice(-49)
+# 
+# filtered_proteomics_data <- filtered_proteomics_data %>% 
+#   dplyr::slice(-49)
+
+#rownames(filtered_proteomics_data) <- filtered_sample_data$record_id
+
+## Imputation
+
+ ### Replacing 0 with NA
+
+filtered_proteomics_data[filtered_proteomics_data==0] <- NA
+
+
+## Imputation using KNN
+
+imp_knn = impute.knn(as.matrix(filtered_proteomics_data,
+                     k = 10, rowmax = 0.5, colmax = 0.8,
+                     maxp = 1500, rng.seed=362436069))
+### Accessing the data
+filtered_proteomics_data_knn <- as.data.frame(imp_knn$data) 
+
+
+## Normalization and replacing outliers
+ ### Log normalization
+protein_data_arranged_E_log <- log(na.omit(filtered_proteomics_data_knn))
+
+protein_data_arranged_E_log_matrix <- as.matrix(protein_data_arranged_E_log)
+
+protein_data_arranged_E_log_auto_scale <- mdatools::prep.autoscale(protein_data_arranged_E_log_matrix,                                                           center = TRUE, scale = TRUE)
+
+
+protein_data_arranged_E_log_auto_scale <- as.data.frame(protein_data_arranged_E_log_auto_scale)
+
+ ## Replacing outliers 
+
+capOutlier <- function(x){
+
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = T)
+
+  caps <- quantile(x, probs=c(.1, .90), na.rm = T)
+
+  H <- 1.5 * IQR(x, na.rm = T)
+
+  x[x < (qnt[1] - H)] <- caps[1]
+
+  x[x > (qnt[2] + H)] <- caps[2]
+
+  return(x)
+
+}
+
+protein_data_arranged_E_log_auto_scale_Outliers_removed <- protein_data_arranged_E_log_auto_scale %>% mutate_at(c(1:423), capOutlier)
+
+protein_data_arranged_E_log_auto_scale_Outliers_removed <- 
+  protein_data_arranged_E_log_auto_scale_Outliers_removed %>% 
+  rownames_to_column(var = "subjid")
+
+write_csv(protein_data_arranged_E_log_auto_scale_Outliers_removed,"../Processed_data/protein_data_arranged_E_log_auto_scale_Outliers_removed_clean.csv")
+
+```
+** Proteomics MUAC adjusted
+
+```{r}
+proteomics_enrol <- read_csv("../Processed_data/protein_data_arranged_E_log_auto_scale_Outliers_removed_clean.csv")
+
+baseline_time2death <- read_csv("../Processed_data/baseline_time2death.csv")
+
+baseline <- baseline_time2death %>% 
+  dplyr::select(subjid, agemonth, sex, site, arm, case, muac0, discdate, 
+                dateenrd_T2E, datem2, enddate_T2E)
+
+
+baseline <- baseline %>% 
+  dplyr::mutate(case_recoded = case_when(case == "Case" ~ 1,
+                                         case == "Control" ~ 0))
+
+proteomics_HR <- proteomics_enrol %>% dplyr::left_join(., baseline, join_by(subjid))
+
+proteomics_HR$time2_death <- as.numeric(difftime(proteomics_HR$datem2, 
+                    proteomics_HR$discdate, units = "days"))
+
+#write_csv(proteomics_HR,"../Processed_data/Model_data/proteomics_enrol.csv")
+
+protein_cols <- proteomics_HR %>% 
+  dplyr::select(A0A1Q1PRB1:V9HWI6)
+
+protein_data <- proteomics_HR
+ 
+
+proteingroup <- read.delim("../Raw_data/proteinGroups_LPDM_15112021.txt")
+
+protein_group_genenames <- proteingroup %>% dplyr::select(Protein.IDs,Gene.names)
+
+protein_group_genenames$Protein.IDs <- gsub(";.*", "", protein_group_genenames$Protein.IDs)
+
+protein_group_genenames$Gene.names <- gsub(";.*", "", protein_group_genenames$Gene.names)
+
+protein_group_genenames$Gene.names <- na_if(protein_group_genenames$Gene.names, '')
+
+protein_group_genenames <- protein_group_genenames %>% dplyr::mutate(Gene.names=coalesce(protein_group_genenames$Gene.names,
+                                  protein_group_genenames$Protein.IDs))
+df2_split <- protein_group_genenames
+
+# Initialize lists to store results
+
+
+adjusted_summaryProt <- list()
+
+adjusted_results <- list()
+
+# protein_data$case_recoded <- as.factor(protein_data$case_recoded)
+ 
+for (col in colnames(protein_cols)) {
+  protein = protein_data[col]
+  adjusted_results[[col]] <- coxph(Surv(time2_death, case_recoded) ~
+                         protein[[col]] + agemonth + muac0 +
+                           strata(sex, site, arm), data = protein_data)
+  
+  adjusted_summaryProt[[col]] <- tidy(adjusted_results[[col]])
+
+}
+ 
+adjusted_summary_dfProt <- do.call(rbind,adjusted_summaryProt )
+
+adjusted_summary_dfProt <- adjusted_summary_dfProt %>% 
+  rownames_to_column(var = "cytokines") # %>% 
+  # slice(-c(1:5)) %>% 
+  # dplyr::select(-term)
+
+adjusted_summary_dfProt <- adjusted_summary_dfProt %>% 
+  dplyr::filter(term %in% "protein[[col]]") %>% 
+  dplyr::select(-term)
+
+adjusted_summary_dfProt$cytokines <- gsub(".1$", "", adjusted_summary_dfProt$cytokines)
+ 
+adjusted_summary_dfProt$estimate <- as.numeric(adjusted_summary_dfProt$estimate)
+
+adjusted_summary_dfProt$std.error <- as.numeric(adjusted_summary_dfProt$std.error)
+
+
+adjusted_summary_dfProt$p.value <- as.numeric(adjusted_summary_dfProt$p.value)
+
+final_results_adjusted <- adjusted_summary_dfProt %>% 
+
+  mutate(
+
+    HR = exp(estimate),
+
+    Lower = exp(estimate - 1.96 * std.error),
+
+    Upper = exp(estimate + 1.96 * std.error)
+
+  ) 
+
+
+final_results_adjusted$significance <- ifelse(final_results_adjusted$p.value <= 0.05, "Yes", "No")
+ 
+final_results_adjusted <- final_results_adjusted %>% 
+  dplyr::left_join(., df2_split, join_by(cytokines == Protein.IDs))
+
+final_results_adjusted <- final_results_adjusted %>% 
+  dplyr::relocate(Gene.names, .after = cytokines)
+
+write_csv(final_results_adjusted,"../Processed_data/conditionalHR_adjusted_proteins_enrol.csv")
+
+```
+
+** MUAC unadjusted Proteomics
+
+```{r}
+proteomics_enrol <- read_csv("../Processed_data/protein_data_arranged_E_log_auto_scale_Outliers_removed_clean.csv")
+
+baseline_time2death <- read_csv("../Processed_data/baseline_time2death.csv")
+
+baseline <- baseline_time2death %>% 
+  dplyr::select(subjid, agemonth, sex, site, arm, case, muac0, discdate, 
+                dateenrd_T2E, datem2, enddate_T2E)
+
+
+baseline <- baseline %>% 
+  dplyr::mutate(case_recoded = case_when(case == "Case" ~ 1,
+                                         case == "Control" ~ 0))
+
+proteomics_HR <- proteomics_enrol %>% dplyr::left_join(., baseline, join_by(subjid))
+
+proteomics_HR$time2_death <- as.numeric(difftime(proteomics_HR$datem2, 
+                    proteomics_HR$discdate, units = "days"))
+
+#write_csv(proteomics_HR,"../Processed_data/Model_data/proteomics_enrol.csv")
+
+protein_cols <- proteomics_HR %>% 
+  dplyr::select(A0A1Q1PRB1:V9HWI6)
+
+protein_data <- proteomics_HR
+ 
+
+proteingroup <- read.delim("../Raw_data/proteinGroups_LPDM_15112021.txt")
+
+protein_group_genenames <- proteingroup %>% dplyr::select(Protein.IDs,Gene.names)
+
+protein_group_genenames$Protein.IDs <- gsub(";.*", "", protein_group_genenames$Protein.IDs)
+
+protein_group_genenames$Gene.names <- gsub(";.*", "", protein_group_genenames$Gene.names)
+
+protein_group_genenames$Gene.names <- na_if(protein_group_genenames$Gene.names, '')
+
+protein_group_genenames <- protein_group_genenames %>% dplyr::mutate(Gene.names=coalesce(protein_group_genenames$Gene.names,
+                                  protein_group_genenames$Protein.IDs))
+df2_split <- protein_group_genenames
+
+# Initialize lists to store results
+
+
+adjusted_summaryProt <- list()
+
+adjusted_results <- list()
+
+# protein_data$case_recoded <- as.factor(protein_data$case_recoded)
+ 
+for (col in colnames(protein_cols)) {
+  protein = protein_data[col]
+  adjusted_results[[col]] <- coxph(Surv(time2_death, case_recoded) ~
+                         protein[[col]] + agemonth +
+                           strata(sex, site, arm), data = protein_data)
+  
+  adjusted_summaryProt[[col]] <- tidy(adjusted_results[[col]])
+
+}
+ 
+adjusted_summary_dfProt <- do.call(rbind,adjusted_summaryProt )
+
+adjusted_summary_dfProt <- adjusted_summary_dfProt %>% 
+  rownames_to_column(var = "cytokines") # %>% 
+  # slice(-c(1:5)) %>% 
+  # dplyr::select(-term)
+
+adjusted_summary_dfProt <- adjusted_summary_dfProt %>% 
+  dplyr::filter(term %in% "protein[[col]]") %>% 
+  dplyr::select(-term)
+
+adjusted_summary_dfProt$cytokines <- gsub(".1$", "", adjusted_summary_dfProt$cytokines)
+ 
+adjusted_summary_dfProt$estimate <- as.numeric(adjusted_summary_dfProt$estimate)
+
+adjusted_summary_dfProt$std.error <- as.numeric(adjusted_summary_dfProt$std.error)
+
+
+adjusted_summary_dfProt$p.value <- as.numeric(adjusted_summary_dfProt$p.value)
+
+final_results_adjusted <- adjusted_summary_dfProt %>% 
+
+  mutate(
+
+    HR = exp(estimate),
+
+    Lower = exp(estimate - 1.96 * std.error),
+
+    Upper = exp(estimate + 1.96 * std.error)
+
+  ) 
+
+
+final_results_adjusted$significance <- ifelse(final_results_adjusted$p.value <= 0.05, "Yes", "No")
+ 
+final_results_adjusted <- final_results_adjusted %>% 
+  dplyr::left_join(., df2_split, join_by(cytokines == Protein.IDs))
+
+final_results_adjusted <- final_results_adjusted %>% 
+  dplyr::relocate(Gene.names, .after = cytokines)
+
+write_csv(final_results_adjusted,"../Processed_data/UnadjustedMUAC_HR/conditionalHR_proteins_enrolment.csv")
+
+```
+
+** 4plex MUAC adjusted
+
+```{r}
+allplates_4plex <- read_csv("/Users/bkamau/Desktop/Preprocessed/clean_files/combinedplates_4plex.csv")
+
+allplates_4plex_Enr <- allplates_4plex %>% 
+  dplyr::filter(timepoint=="Enr")
+
+allplates_4plex_Enr <- allplates_4plex_Enr %>% 
+  dplyr::select(-c(date,timepoint,plate,...1))
+
+df <- allplates_4plex_Enr
+# Sample data frame with 20 columns and 100 rows
+set.seed(123)  # For reproducibility
+
+# Loop through each column in the data frame
+for (col in names(df)) {
+  # Convert column to character to handle "<" and ">" values properly
+  df[[col]] <- as.character(df[[col]])
+  
+  # Calculate the minimum and maximum numeric values in the column, ignoring "<" and ">" values
+  min_value <- min(as.numeric(df[[col]][!grepl("^[<>]", df[[col]])]), na.rm = TRUE)
+  max_value <- max(as.numeric(df[[col]][!grepl("^[<>]", df[[col]])]), na.rm = TRUE)
+  
+  # Calculate the replacement value for "<" as minimum value divided by the square root of 2
+  replacement_min <- min_value / sqrt(2)
+  
+  # Replace values that start with '<' with the calculated replacement minimum value
+  df[[col]] <- ifelse(grepl("^<", df[[col]]), replacement_min, df[[col]])
+  
+  # Replace values that start with '>' with the maximum value in the column
+  df[[col]] <- ifelse(grepl("^>", df[[col]]), max_value, df[[col]])
+}
+
+# Convert columns back to their appropriate data types (e.g., numeric)
+df[] <- lapply(df, function(x) as.numeric(as.character(x)))
+
+
+allplates_4plex_Enr <- df
+
+
+# Assuming your data frame is named 'df' and the participant ID column is named 'ParticipantID'
+allplates_4plex_Enr$subjid <- as.character(allplates_4plex_Enr$subjid)
+
+allplates_4plex_Enr_clean <- allplates_4plex_Enr %>% slice(-c(146))
+# Process the data
+allplates_4plex_Enr_clean <- allplates_4plex_Enr_clean %>%
+  group_by(subjid) %>% # Group by the participant identifier
+  slice_max(rowSums(across(where(is.numeric))), n = 1, with_ties = FALSE) %>% # Select the row with the highest sum of protein values
+  ungroup() # Ungroup the data frame
+ 
+# View the result
+print(allplates_4plex_Enr_clean)
+#write_csv(allplates_4plex_Enr_clean,"CTX_LPDM_251024/rawdata_4plex_enrol.csv")
+
+
+## Log normalization and Autoscaling
+
+allplates_4plex_Enr_clean <- allplates_4plex_Enr_clean %>%
+   column_to_rownames(var = "subjid")
+
+allplates_4plex_Enr_clean_log <- log(na.omit(allplates_4plex_Enr_clean))
+
+allplates_4plex_Enr_clean_log_auto_scale <- mdatools::prep.autoscale(as.matrix(allplates_4plex_Enr_clean_log), 
+center = TRUE, scale = TRUE)
+
+
+allplates_4plex_Enr_clean_log_auto_scale <- as.data.frame(allplates_4plex_Enr_clean_log_auto_scale)
+
+
+### Outlier replacement
+
+capOutlier <- function(x){
+
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = T)
+
+  caps <- quantile(x, probs=c(.1, .90), na.rm = T)
+
+  H <- 1.5 * IQR(x, na.rm = T)
+
+  x[x < (qnt[1] - H)] <- caps[1]
+
+  x[x > (qnt[2] + H)] <- caps[2]
+
+  return(x)
+
+}
+
+allplates_4plex_Enr_clean_log_auto_scale_long_Outliers_removed <- allplates_4plex_Enr_clean_log_auto_scale %>% mutate_at(c(1:4), capOutlier)
+
+
+## Combine with baseline data
+
+metadata <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+
+allplates_4plex_Enr_clean_log_auto_scale <- allplates_4plex_Enr_clean_log_auto_scale %>% 
+   rownames_to_column(var = "subjid")
+
+metadata$subjid <- as.character(metadata$subjid)
+
+cytokines4plex_metadata <- allplates_4plex_Enr_clean_log_auto_scale %>%
+  dplyr::left_join(.,metadata, join_by(subjid))
+
+
+#case <- luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removed$case
+cytokines4plex_metadata <- cytokines4plex_metadata %>% 
+  dplyr::filter(!is.na(case))
+
+cytokines4plex_metadata <- cytokines4plex_metadata %>% 
+  dplyr::rename(Thrombomodulin=`Thrombomodulin/BDCA-3`,
+                Angiopoietin=`Angiopoietin-2`)
+
+write_csv(cytokines4plex_metadata,"../Processed_data/luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removedEnrolment.csv")
+```
+
+** 4plex MUAC adjusted
+```{r}
+
+cytokines4plex_metadata <- read_csv("../Processed_data/luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removedEnrolment.csv")
+
+cytokines4plex_metadata <- cytokines4plex_metadata %>% 
+  dplyr::select(1:5)
+
+baseline_time2death <- read_csv("../Processed_data/baseline_time2death.csv")
+
+
+baseline_time2death <- baseline_time2death %>% 
+  dplyr::select(subjid, agemonth, sex, site, arm, case, muac0, discdate, 
+                dateenrd_T2E, datem2, enddate_T2E)
+
+baseline_time2death <- baseline_time2death %>% 
+  dplyr::mutate(case_recoded = case_when(case == "Case" ~ 1,
+                                         case == "Control" ~ 0))
+
+baseline_time2death$subjid <- as.character(baseline_time2death$subjid)
+
+cytokines4plex_metadata$subjid <- as.character(cytokines4plex_metadata$subjid)
+
+cytokines4plex_metadata_HR <- cytokines4plex_metadata %>% dplyr::left_join(., baseline_time2death, join_by(subjid))
+
+cytokines4plex_metadata_HR$time2_death <- as.numeric(difftime(cytokines4plex_metadata_HR$datem2, cytokines4plex_metadata_HR$discdate, units = "days"))
+
+
+protein_cols <- cytokines4plex_metadata_HR %>% 
+  dplyr::select(Thrombomodulin:ADAMTS13)
+
+protein_data <- cytokines4plex_metadata_HR
+ 
+# Initialize lists to store results
+
+#crude_results <- list()
+
+adjusted_results <- list()
+ 
+for (col in colnames(protein_cols)) {
+  protein = protein_data[col]
+  adjusted_results[[col]] <- coxph(Surv(time2_death, case_recoded) ~
+                         protein[[col]] + agemonth + muac0 +
+                           strata(sex, site, arm), data = protein_data)
+  
+  adjusted_results[[col]] <- tidy(adjusted_results[[col]])
+
+}
+ 
+adjusted_summary_df <- do.call(rbind,adjusted_results)
+
+crude_summary_df <- adjusted_summary_df %>%
+  dplyr::filter(term=='protein[[col]]') %>% 
+  rownames_to_column(var = "cytokines") %>%
+  dplyr::select(-term)
+
+crude_summary_df$estimate <- as.numeric(crude_summary_df$estimate)
+
+crude_summary_df$std.error <- as.numeric(crude_summary_df$std.error)
+
+
+crude_summary_df$p.value <- as.numeric(crude_summary_df$p.value)
+
+final_results_crude <- crude_summary_df %>% 
+
+  mutate(
+
+    HR = exp(estimate),
+
+    Lower = exp(estimate - 1.96 * std.error),
+
+    Upper = exp(estimate + 1.96 * std.error)
+
+  ) 
+
+final_results_crude$significance <- ifelse(final_results_crude$p.value <= 0.05, "Yes", "No")
+ final_results_crude$cytokines <- sub(".1$", "", final_results_crude$cytokines)
+
+write_csv(final_results_crude,"../Processed_data/conditionalHR_adjusted_enrol_4plex.csv")
+```
+** MUAC unadjusted - 4plex 
+```{r}
+
+cytokines4plex_metadata <- read_csv("../Processed_data/luminex_4plex_cleaned_numeric_log_auto_scale_long_Outliers_removedEnrolment.csv")
+
+cytokines4plex_metadata <- cytokines4plex_metadata %>% 
+  dplyr::select(1:5)
+
+baseline_time2death <- read_csv("../Processed_data/baseline_time2death.csv")
+
+
+baseline_time2death <- baseline_time2death %>% 
+  dplyr::select(subjid, agemonth, sex, site, arm, case, muac0, discdate, 
+                dateenrd_T2E, datem2, enddate_T2E)
+
+baseline_time2death <- baseline_time2death %>% 
+  dplyr::mutate(case_recoded = case_when(case == "Case" ~ 1,
+                                         case == "Control" ~ 0))
+
+baseline_time2death$subjid <- as.character(baseline_time2death$subjid)
+
+cytokines4plex_metadata$subjid <- as.character(cytokines4plex_metadata$subjid)
+
+cytokines4plex_metadata_HR <- cytokines4plex_metadata %>% dplyr::left_join(., baseline_time2death, join_by(subjid))
+
+cytokines4plex_metadata_HR$time2_death <- as.numeric(difftime(cytokines4plex_metadata_HR$datem2, cytokines4plex_metadata_HR$discdate, units = "days"))
+
+
+protein_cols <- cytokines4plex_metadata_HR %>% 
+  dplyr::select(Thrombomodulin:ADAMTS13)
+
+protein_data <- cytokines4plex_metadata_HR
+ 
+# Initialize lists to store results
+
+#crude_results <- list()
+
+adjusted_results <- list()
+ 
+for (col in colnames(protein_cols)) {
+  protein = protein_data[col]
+  adjusted_results[[col]] <- coxph(Surv(time2_death, case_recoded) ~
+                         protein[[col]] + agemonth +
+                           strata(sex, site, arm), data = protein_data)
+  
+  adjusted_results[[col]] <- tidy(adjusted_results[[col]])
+
+}
+ 
+adjusted_summary_df <- do.call(rbind,adjusted_results)
+
+crude_summary_df <- adjusted_summary_df %>%
+  dplyr::filter(term=='protein[[col]]') %>% 
+  rownames_to_column(var = "cytokines") %>%
+  dplyr::select(-term)
+
+crude_summary_df$estimate <- as.numeric(crude_summary_df$estimate)
+
+crude_summary_df$std.error <- as.numeric(crude_summary_df$std.error)
+
+
+crude_summary_df$p.value <- as.numeric(crude_summary_df$p.value)
+
+final_results_crude <- crude_summary_df %>% 
+
+  mutate(
+
+    HR = exp(estimate),
+
+    Lower = exp(estimate - 1.96 * std.error),
+
+    Upper = exp(estimate + 1.96 * std.error)
+
+  ) 
+
+final_results_crude$significance <- ifelse(final_results_crude$p.value <= 0.05, "Yes", "No")
+ final_results_crude$cytokines <- sub(".1$", "", final_results_crude$cytokines)
+
+write_csv(final_results_crude,"../Processed_data/UnadjustedMUAC_HR/conditionalHR_enrolment_4plex.csv")
+```
+
+
+** 29plex Enrolment
+```{r}
+allplates_29plex <- read_csv("/Users/bkamau/Desktop/Preprocessed/clean_files/combinedplates_29plex.csv")
+
+allplates_29plex_Enr <- allplates_29plex %>% 
+  dplyr::filter(timepoint=="Enr")
+
+allplates_29plex_Enr <- allplates_29plex_Enr %>% 
+  dplyr::select(-c(date,timepoint,plate,...1))
+
+df <- allplates_29plex_Enr
+# Sample data frame with 20 columns and 100 rows
+set.seed(123)  # For reproducibility
+
+# Loop through each column in the data frame
+for (col in names(df)) {
+  # Convert column to character to handle "<" and ">" values properly
+  df[[col]] <- as.character(df[[col]])
+  
+  # Calculate the minimum and maximum numeric values in the column, ignoring "<" and ">" values
+  min_value <- min(as.numeric(df[[col]][!grepl("^[<>]", df[[col]])]), na.rm = TRUE)
+  max_value <- max(as.numeric(df[[col]][!grepl("^[<>]", df[[col]])]), na.rm = TRUE)
+  
+  # Calculate the replacement value for "<" as minimum value divided by the square root of 2
+  replacement_min <- min_value / sqrt(2)
+  
+  # Replace values that start with '<' with the calculated replacement minimum value
+  df[[col]] <- ifelse(grepl("^<", df[[col]]), replacement_min, df[[col]])
+  
+  # Replace values that start with '>' with the maximum value in the column
+  df[[col]] <- ifelse(grepl("^>", df[[col]]), max_value, df[[col]])
+}
+
+# Convert columns back to their appropriate data types (e.g., numeric)
+df[] <- lapply(df, function(x) as.numeric(as.character(x)))
+
+
+allplates_29plex_Enr <- df
+
+
+# Assuming your data frame is named 'df' and the participant ID column is named 'ParticipantID'
+allplates_29plex_Enr$subjid <- as.character(allplates_29plex_Enr$subjid)
+
+allplates_29plex_Enr_clean <- allplates_29plex_Enr %>% 
+  dplyr::select(-c(RANTES))
+# Process the data
+allplates_29plex_Enr_clean <- allplates_29plex_Enr_clean %>%
+  group_by(subjid) %>% # Group by the participant identifier
+  slice_max(rowSums(across(where(is.numeric))), n = 1, with_ties = FALSE) %>% # Select the row with the highest sum of protein values
+  ungroup() # Ungroup the data frame
+ 
+# View the result
+print(allplates_29plex_Enr_clean)
+
+write_csv(allplates_29plex_Enr_clean,"../Raw_data/rawdata_29plex_enrol.csv")
+
+ allplates_29plex_Enr_clean <- allplates_29plex_Enr_clean %>%
+    column_to_rownames(var = "subjid")
+
+allplates_29plex_Enr_clean_log <- log(na.omit(allplates_29plex_Enr_clean))
+
+allplates_29plex_Enr_clean_log_auto_scale <- mdatools::prep.autoscale(as.matrix(allplates_29plex_Enr_clean_log), 
+center = TRUE, scale = TRUE)
+
+
+allplates_29plex_Enr_clean_log_auto_scale <- as.data.frame(allplates_29plex_Enr_clean_log_auto_scale)
+
+
+### Outlier replacement
+
+capOutlier <- function(x){
+
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = T)
+
+  caps <- quantile(x, probs=c(.1, .90), na.rm = T)
+
+  H <- 1.5 * IQR(x, na.rm = T)
+
+  x[x < (qnt[1] - H)] <- caps[1]
+
+  x[x > (qnt[2] + H)] <- caps[2]
+
+  return(x)
+
+}
+
+allplates_29plex_Enr_clean_log_auto_scale_long_Outliers_removed <- allplates_29plex_Enr_clean_log_auto_scale %>% mutate_at(c(1:29), capOutlier)
+
+
+## Combine with baseline data
+
+metadata <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+
+allplates_29plex_Enr_clean_log_auto_scale <- allplates_29plex_Enr_clean_log_auto_scale %>% 
+   rownames_to_column(var = "subjid")
+
+metadata$subjid <- as.character(metadata$subjid)
+
+cytokines29plex_metadata <- allplates_29plex_Enr_clean_log_auto_scale %>%
+  dplyr::left_join(.,metadata, join_by(subjid))
+
+
+#case <- luminex_29plex_cleaned_numeric_log_auto_scale_long_Outliers_removed$case
+cytokines29plex_metadata <- cytokines29plex_metadata %>% 
+  dplyr::filter(!is.na(case))
+
+cytokines29plex_metadata <- cytokines29plex_metadata %>% 
+  dplyr::select(-c(`IL-3`))
+
+write_csv(cytokines29plex_metadata,"../Processed_data/luminex_29plex_cleaned_numeric_log_auto_scale_long_Outliers_removedEnrolment.csv")
+```
+
+
+** 29plex Enrolment MUAC adjusted
+```{r}
+
+cytokines29plex_metadata <- read_csv("../Processed_data/luminex_29plex_cleaned_numeric_log_auto_scale_long_Outliers_removedEnrolment.csv")
+
+baseline_time2death <- read_csv("../Processed_data/baseline_time2death.csv")
+
+cytokines29plex_metadata <- cytokines29plex_metadata %>% 
+  dplyr::select(1:29)
+
+
+baseline_time2death <- baseline_time2death %>% 
+  dplyr::select(subjid, agemonth, sex, site, arm, case, muac0, discdate, 
+                dateenrd_T2E, datem2, enddate_T2E)
+
+baseline_time2death <- baseline_time2death %>% 
+  dplyr::mutate(case_recoded = case_when(case == "Case" ~ 1,
+                                         case == "Control" ~ 0))
+
+baseline_time2death$subjid <- as.character(baseline_time2death$subjid)
+
+cytokines29plex_metadata$subjid <- as.character(cytokines29plex_metadata$subjid)
+
+cytokines29plex_metadata_HR <- cytokines29plex_metadata %>% dplyr::left_join(., baseline_time2death, join_by(subjid))
+
+cytokines29plex_metadata_HR$time2_death <- as.numeric(difftime(cytokines29plex_metadata_HR$datem2, cytokines29plex_metadata_HR$discdate, units = "days"))
+
+cytokines29plex_metadata_HR
+write_csv(cytokines29plex_metadata_HR,"../Processed_data/Model_data/4plex_enrol.csv")
+
+protein_cols <- cytokines29plex_metadata_HR %>% 
+  dplyr::select(IL10:EGF)
+
+protein_data <- cytokines29plex_metadata_HR
+ 
+# Initialize lists to store results
+
+adjusted_results <- list()
+ 
+for (col in colnames(protein_cols)) {
+  protein = protein_data[col]
+  adjusted_results[[col]] <- coxph(Surv(time2_death, case_recoded) ~
+                         protein[[col]] + agemonth + muac0 +
+                           strata(sex, site, arm), data = protein_data)
+  
+  adjusted_results[[col]] <- tidy(adjusted_results[[col]])
+
+}
+ 
+adjusted_summary_df <- do.call(rbind,adjusted_results)
+
+crude_summary_df <- adjusted_summary_df %>%
+  dplyr::filter(term=='protein[[col]]') %>% 
+  rownames_to_column(var = "cytokines") %>% 
+  dplyr::select(-term)
+
+crude_summary_df$estimate <- as.numeric(crude_summary_df$estimate)
+
+crude_summary_df$std.error <- as.numeric(crude_summary_df$std.error)
+
+
+crude_summary_df$p.value <- as.numeric(crude_summary_df$p.value)
+
+final_results_crude <- crude_summary_df %>% 
+
+  mutate(
+
+    HR = exp(estimate),
+
+    Lower = exp(estimate - 1.96 * std.error),
+
+    Upper = exp(estimate + 1.96 * std.error)
+
+  ) 
+
+#final_results_crude$p.adjusted <- stats::p.adjust(final_results_crude$p.value,method = "fdr")
+
+final_results_crude$significance <- ifelse(final_results_crude$p.value <= 0.05, "Yes", "No")
+ 
+
+final_results_crude$cytokines <- sub(".1$", "", final_results_crude$cytokines)
+
+final_results_crude <- final_results_crude %>%
+  dplyr::mutate(cytokines = case_when(
+    cytokines == "IFNa2" ~ "IFNα2",
+    cytokines == "IL-1a" ~ "IL-1α",
+    cytokines == "IL-1b" ~ "IL-1β",
+    cytokines == "TNFa" ~ "TNFα",
+    cytokines == "MIP-1a" ~ "MIP-1α",
+    cytokines == "TNFb" ~ "TNFβ",
+    cytokines == "MIP-1b" ~ "MIP-1β",
+    cytokines == "IFNg" ~ "IFN-γ",
+    cytokines == "IL10" ~ "IL-10",
+    TRUE ~ cytokines
+  ))
+ 
+
+write_csv(final_results_crude,"../Processed_data/conditionalHR_adjusted_enrol_29plex.csv")
+
+```
+
+** MUAC unadjusted 29plex Enrolment
+```{r}
+
+cytokines29plex_metadata <- read_csv("../Processed_data/luminex_29plex_cleaned_numeric_log_auto_scale_long_Outliers_removedEnrolment.csv")
+
+baseline_time2death <- read_csv("../Processed_data/baseline_time2death.csv")
+
+cytokines29plex_metadata <- cytokines29plex_metadata %>% 
+  dplyr::select(1:29)
+
+
+baseline_time2death <- baseline_time2death %>% 
+  dplyr::select(subjid, agemonth, sex, site, arm, case, muac0, discdate, 
+                dateenrd_T2E, datem2, enddate_T2E)
+
+baseline_time2death <- baseline_time2death %>% 
+  dplyr::mutate(case_recoded = case_when(case == "Case" ~ 1,
+                                         case == "Control" ~ 0))
+
+baseline_time2death$subjid <- as.character(baseline_time2death$subjid)
+
+cytokines29plex_metadata$subjid <- as.character(cytokines29plex_metadata$subjid)
+
+cytokines29plex_metadata_HR <- cytokines29plex_metadata %>% dplyr::left_join(., baseline_time2death, join_by(subjid))
+
+cytokines29plex_metadata_HR$time2_death <- as.numeric(difftime(cytokines29plex_metadata_HR$datem2, cytokines29plex_metadata_HR$discdate, units = "days"))
+
+cytokines29plex_metadata_HR
+write_csv(cytokines29plex_metadata_HR,"../Processed_data/Model_data/4plex_enrol.csv")
+
+protein_cols <- cytokines29plex_metadata_HR %>% 
+  dplyr::select(IL10:EGF)
+
+protein_data <- cytokines29plex_metadata_HR
+ 
+# Initialize lists to store results
+
+adjusted_results <- list()
+ 
+for (col in colnames(protein_cols)) {
+  protein = protein_data[col]
+  adjusted_results[[col]] <- coxph(Surv(time2_death, case_recoded) ~
+                         protein[[col]] + agemonth +
+                           strata(sex, site, arm), data = protein_data)
+  
+  adjusted_results[[col]] <- tidy(adjusted_results[[col]])
+
+}
+ 
+adjusted_summary_df <- do.call(rbind,adjusted_results)
+
+crude_summary_df <- adjusted_summary_df %>%
+  dplyr::filter(term=='protein[[col]]') %>% 
+  rownames_to_column(var = "cytokines") %>% 
+  dplyr::select(-term)
+
+crude_summary_df$estimate <- as.numeric(crude_summary_df$estimate)
+
+crude_summary_df$std.error <- as.numeric(crude_summary_df$std.error)
+
+
+crude_summary_df$p.value <- as.numeric(crude_summary_df$p.value)
+
+final_results_crude <- crude_summary_df %>% 
+
+  mutate(
+
+    HR = exp(estimate),
+
+    Lower = exp(estimate - 1.96 * std.error),
+
+    Upper = exp(estimate + 1.96 * std.error)
+
+  ) 
+
+#final_results_crude$p.adjusted <- stats::p.adjust(final_results_crude$p.value,method = "fdr")
+
+final_results_crude$significance <- ifelse(final_results_crude$p.value <= 0.05, "Yes", "No")
+ 
+
+final_results_crude$cytokines <- sub(".1$", "", final_results_crude$cytokines)
+
+final_results_crude <- final_results_crude %>%
+  dplyr::mutate(cytokines = case_when(
+    cytokines == "IFNa2" ~ "IFNα2",
+    cytokines == "IL-1a" ~ "IL-1α",
+    cytokines == "IL-1b" ~ "IL-1β",
+    cytokines == "TNFa" ~ "TNFα",
+    cytokines == "MIP-1a" ~ "MIP-1α",
+    cytokines == "TNFb" ~ "TNFβ",
+    cytokines == "MIP-1b" ~ "MIP-1β",
+    cytokines == "IFNg" ~ "IFN-γ",
+    cytokines == "IL10" ~ "IL-10",
+    TRUE ~ cytokines
+  ))
+ 
+
+write_csv(final_results_crude,"../Processed_data/UnadjustedMUAC_HR/conditionalHR_enrolment_29plex.csv")
+
+```
+
+** Hematological factors MUAC adjusted - enrolment
+
+```{r}
+
+baseline_time2death <- read_csv("../Processed_data/baseline_time2death.csv")
+
+baseline_hema <- baseline_time2death %>%
+  dplyr::mutate(case_recoded = case_when(case=="Case"~1,case=="Control"~0)) # baseline_time2death
+
+hematological_data <- baseline_hema %>% 
+  dplyr::select(c(subjid, agemonth, sex, site, arm, case,muac0,ehg,elymph,eneutrop,eplatelet,ewbc,discdate, dateenrd_T2E,datem2, enddate_T2E, case_recoded))
+
+hematological_data$time2_death <- as.numeric(difftime(hematological_data$datem2, hematological_data$discdate, units = "days"))
+
+
+### Haemoglobin Enrol
+
+hematological_data_only <- hematological_data %>% 
+  dplyr::select(subjid, ehg,elymph,eneutrop,eplatelet,ewbc) %>% 
+  column_to_rownames(var = "subjid")
+  
+hematological_data_only_log <- log(na.omit(hematological_data_only)) %>% as.matrix()
+
+hematological_data_only_log_scaled <- mdatools::prep.autoscale(hematological_data_only_log,                                                           center = TRUE, scale = TRUE)
+
+
+hematological_data_only_log_scaled_df <- as.data.frame(hematological_data_only_log_scaled) %>% 
+  rownames_to_column(var = "subjid")
+
+hematological_data_HR <- hematological_data %>% 
+  dplyr::select(!c(ehg,elymph,eneutrop,eplatelet,ewbc))
+
+
+hematological_data_HR$subjid <- as.character(hematological_data_HR$subjid)
+
+hematological_data_HR <-hematological_data_only_log_scaled_df   %>% 
+  dplyr::left_join(., hematological_data_HR,
+                   join_by(subjid))
+
+hematological_data_HR <- hematological_data_HR %>% 
+  dplyr::mutate(Neutr_Lymph_ratio=eneutrop/elymph)
+
+############################################
+
+hematological_data_HR <- hematological_data_HR %>% 
+  dplyr::rename(Haemoglobin = ehg,Lymphocytes = elymph, 
+                Neutrophils = eneutrop, Platelets = eplatelet,
+                WBCs = ewbc, NLR = Neutr_Lymph_ratio)
+
+
+protein_cols <- hematological_data_HR %>% 
+  dplyr::select(Haemoglobin, Lymphocytes, Neutrophils, Platelets, WBCs, NLR)
+
+
+
+protein_data <- hematological_data_HR
+
+
+adjusted_results <- list()
+ 
+for (col in colnames(protein_cols)) {
+  protein = protein_data[col]
+  adjusted_results[[col]] <- coxph(Surv(time2_death, case_recoded) ~
+                         protein[[col]] + agemonth + muac0 +
+                           strata(sex, site, arm), data = protein_data)
+  
+  adjusted_results[[col]] <- tidy(adjusted_results[[col]])
+
+}
+ 
+adjusted_summary_df <- do.call(rbind,adjusted_results)
+
+adjusted_summary_df <- adjusted_summary_df %>%
+  dplyr::filter(term=='protein[[col]]') %>% 
+  rownames_to_column(var = "cytokines") %>%
+  dplyr::select(-term)
+
+adjusted_summary_df$estimate <- as.numeric(adjusted_summary_df$estimate)
+
+adjusted_summary_df$std.error <- as.numeric(adjusted_summary_df$std.error)
+
+
+adjusted_summary_df$p.value <- as.numeric(adjusted_summary_df$p.value)
+
+final_results_adjusted <- adjusted_summary_df %>% 
+
+  mutate(
+
+    HR = exp(estimate),
+
+    Lower = exp(estimate - 1.96 * std.error),
+
+    Upper = exp(estimate + 1.96 * std.error)
+
+  ) 
+
+final_results_adjusted$significance <- ifelse(final_results_adjusted$p.value <= 0.05, "Yes", "No")
+
+
+final_results_adjusted$cytokines <- sub(".1$", "", final_results_adjusted$cytokines)
+
+write_csv(final_results_adjusted,"../Processed_data/conditionalHR_adjusted_enrol_haematology.csv")
+
+```
+
+** MUAC unadjusted Hematological factors - enrolment
+
+```{r}
+
+baseline_time2death <- read_csv("../Processed_data/baseline_time2death.csv")
+
+baseline_hema <- baseline_time2death %>%
+  dplyr::mutate(case_recoded = case_when(case=="Case"~1,case=="Control"~0)) # baseline_time2death
+
+hematological_data <- baseline_hema %>% 
+  dplyr::select(c(subjid, agemonth, sex, site, arm, case,muac0,ehg,elymph,eneutrop,eplatelet,ewbc,discdate, dateenrd_T2E,datem2, enddate_T2E, case_recoded))
+
+hematological_data$time2_death <- as.numeric(difftime(hematological_data$datem2, hematological_data$discdate, units = "days"))
+
+
+### Haemoglobin Enrol
+
+hematological_data_only <- hematological_data %>% 
+  dplyr::select(subjid, ehg,elymph,eneutrop,eplatelet,ewbc) %>% 
+  column_to_rownames(var = "subjid")
+  
+hematological_data_only_log <- log(na.omit(hematological_data_only)) %>% as.matrix()
+
+hematological_data_only_log_scaled <- mdatools::prep.autoscale(hematological_data_only_log,                                                           center = TRUE, scale = TRUE)
+
+
+hematological_data_only_log_scaled_df <- as.data.frame(hematological_data_only_log_scaled) %>% 
+  rownames_to_column(var = "subjid")
+
+hematological_data_HR <- hematological_data %>% 
+  dplyr::select(!c(ehg,elymph,eneutrop,eplatelet,ewbc))
+
+
+hematological_data_HR$subjid <- as.character(hematological_data_HR$subjid)
+
+hematological_data_HR <-hematological_data_only_log_scaled_df   %>% 
+  dplyr::left_join(., hematological_data_HR,
+                   join_by(subjid))
+
+hematological_data_HR <- hematological_data_HR %>% 
+  dplyr::mutate(Neutr_Lymph_ratio=eneutrop/elymph)
+
+############################################
+
+hematological_data_HR <- hematological_data_HR %>% 
+  dplyr::rename(Haemoglobin = ehg,Lymphocytes = elymph, 
+                Neutrophils = eneutrop, Platelets = eplatelet,
+                WBCs = ewbc, NLR = Neutr_Lymph_ratio)
+
+
+protein_cols <- hematological_data_HR %>% 
+  dplyr::select(Haemoglobin, Lymphocytes, Neutrophils, Platelets, WBCs, NLR)
+
+
+
+protein_data <- hematological_data_HR
+
+
+adjusted_results <- list()
+ 
+for (col in colnames(protein_cols)) {
+  protein = protein_data[col]
+  adjusted_results[[col]] <- coxph(Surv(time2_death, case_recoded) ~
+                         protein[[col]] + agemonth + 
+                           strata(sex, site, arm), data = protein_data)
+  
+  adjusted_results[[col]] <- tidy(adjusted_results[[col]])
+
+}
+ 
+adjusted_summary_df <- do.call(rbind,adjusted_results)
+
+adjusted_summary_df <- adjusted_summary_df %>%
+  dplyr::filter(term=='protein[[col]]') %>% 
+  rownames_to_column(var = "cytokines") %>%
+  dplyr::select(-term)
+
+adjusted_summary_df$estimate <- as.numeric(adjusted_summary_df$estimate)
+
+adjusted_summary_df$std.error <- as.numeric(adjusted_summary_df$std.error)
+
+
+adjusted_summary_df$p.value <- as.numeric(adjusted_summary_df$p.value)
+
+final_results_adjusted <- adjusted_summary_df %>% 
+
+  mutate(
+
+    HR = exp(estimate),
+
+    Lower = exp(estimate - 1.96 * std.error),
+
+    Upper = exp(estimate + 1.96 * std.error)
+
+  ) 
+
+final_results_adjusted$significance <- ifelse(final_results_adjusted$p.value <= 0.05, "Yes", "No")
+
+
+final_results_adjusted$cytokines <- sub(".1$", "", final_results_adjusted$cytokines)
+
+write_csv(final_results_adjusted,"../Processed_data/UnadjustedMUAC_HR/conditionalHR_enrolment_haematology.csv")
+
+```
+
+
+*** Hazard ratios plots for Endothelial markers and cytokines (4plex and 29plex)
+
+***** Month 2 MUAC adjusted
+```{r}
+M24plex <- read_csv("../Processed_data/conditionalHR_adjusted_m2_4plex.csv")
+
+M229plex <- read_csv("../Processed_data/conditionalHR_adjusted_m2_29plex.csv")
+
+CombM2_4_29Plex <- bind_rows(M24plex, M229plex)
+
+#CombM2_4_29Plex$cytokines <- gsub("-", "", CombM2_4_29Plex$cytokines)
+
+CombM2_4_29Plex %>% dplyr::arrange(desc(estimate)) %>% 
+
+  ggforestplot::forestplot(name = cytokines, estimate = estimate, 
+
+                           se = std.error, logodds = T, 
+
+                           boxsize = 0.2, 
+
+                           colour = significance, 
+
+                           xlab = "HR (95% CI)", 
+
+                           ylab = "Cytokines and endothelial markers at Month 2",
+
+                            title = paste0("Controls", "                    ", "     Cases"),
+
+                           ) +
+
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+
+        axis.text.x = element_text(size = 15),
+
+        axis.text.y = element_text(size = 15, face = "bold"),
+
+        legend.position = "none",
+
+        legend.title = element_text(size = 15, face = "bold"),
+
+        legend.text = element_text(size = 15, face = "bold"),
+
+        axis.title.x = element_text(size = 15, face = "bold", colour = "blue"),
+
+        axis.title.y = element_text(size = 15, face = "bold", colour = "blue"))
+ 
+#ggsave("../Figures/Hazard_ratios/Endothelialand cytokines_M2.jpeg", width = 6, height= 10, dpi = 600, units = "in")
+#ggsave("../Figures/Hazard_ratios/Endothelialand cytokines_M2.pdf", width = 6, height= 10, dpi = 600, units = "in")
+ 
+```
+
+***** Enrolment
+
+```{r}
+Enr4plex <- read_csv("../Processed_data/conditionalHR_adjusted_disc_4plex.csv")
+
+Enr29plex <- read_csv("../Processed_data/conditionalHR_adjusted_disc_29plex.csv")
+
+CombEnrl4_29Plex <- bind_rows(Enr4plex, Enr29plex)
+
+CombEnrl4_29Plex %>% dplyr::arrange(desc(estimate)) %>% 
+
+  ggforestplot::forestplot(name = cytokines, estimate = estimate, 
+
+                           se = std.error, logodds = T, 
+
+                           boxsize = 0.2, 
+
+                           colour = significance, 
+
+                           xlab = "HR (95% CI)", 
+
+                           ylab = "Cytokines and endothelial markers at Enrolment",
+
+                            title = paste0("Controls", "                    ", "Cases"),
+
+                           ) +
+
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+
+        axis.text.x = element_text(size = 15),
+
+        axis.text.y = element_text(size = 15, face = "bold"),
+
+        legend.position = "none",
+
+        legend.title = element_text(size = 15, face = "bold"),#size = 15 for pdf
+
+        legend.text = element_text(size = 15, face = "bold"),
+
+        axis.title.x = element_text(size = 15, face = "bold", colour = "blue"),#size = 65 for jpeg
+
+        axis.title.y = element_text(size = 15, face = "bold", colour = "blue"))
+ 
+ 
+#ggsave("../Figures/Hazard_ratios/Endothelialand cytokines_enrolment.jpeg", width = 6, height= 10, dpi = 600, units = "in")
+ 
+#ggsave("../Figures/Hazard_ratios/Endothelialand cytokines_enrolment.pdf", width = 6, height= 10, dpi = 600, units = "in")
+```
+** Hazard ratios plots for proteomics
+*** Enrolment
+
+```{r}
+EnrProteomics <- read_csv("../Processed_data/conditionalHR_adjusted_proteins_disc.csv")
+
+#EnrProteomics$Gene.names <- gsub("-", "", EnrProteomics$Gene.names)
+ 
+EnrProteomicsSign <- EnrProteomics %>% dplyr::filter(significance == "Yes")
+ 
+EnrProteomicsSign %>% dplyr::arrange(desc(estimate)) %>% 
+
+  ggforestplot::forestplot(name = Gene.names, estimate = estimate, 
+
+                           se = std.error, logodds = T, 
+
+                           boxsize = 0.2, 
+
+                           colour = significance, 
+
+                           xlab = "HR (95% CI)", 
+
+                           ylab = "Proteins at Enrolment",
+
+                            title = paste0("Controls   ", "               ", "Cases"),
+
+                           ) +
+
+theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+
+        axis.text.x = element_text(size = 15),
+
+        axis.text.y = element_text(size = 15, face = "bold"),
+
+        legend.position = "none",
+
+        legend.title = element_text(size = 15, face = "bold"),
+
+        legend.text = element_text(size = 15, face = "bold"),
+
+        axis.title.x = element_text(size = 15, face = "bold", colour = "blue"),
+
+        axis.title.y = element_text(size = 15, face = "bold", colour = "blue"))
+ 
+#ggsave("../Figures/Hazard_ratios/proteomics_enrol.jpeg", width = 5.5, height = 8, dpi = 600, units = "in")
+#ggsave("../Figures/Hazard_ratios/proteomics_enrol.pdf", width = 5.5, height = 8, dpi = 600, units = "in")
+```
+*** Month 2
+
+```{r}
+M2Proteomics <- read_csv("../Processed_data/conditionalHR_adjusted_proteinm2.csv")
+
+M2ProteomicsSign <- M2Proteomics %>% dplyr::filter(significance == "Yes")
+ 
+M2ProteomicsSign %>% dplyr::arrange(desc(estimate)) %>% 
+
+  ggforestplot::forestplot(name = Gene.names, estimate = estimate, 
+
+                           se = std.error, logodds = T, 
+
+                           boxsize = 0.2, 
+
+                           colour = significance, 
+
+                           xlab = "HR (95% CI)", 
+
+                           ylab = "Proteins at Month 2",
+
+                            title = paste0("Controls", "                ", "Cases"),
+
+                           ) +
+
+theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+
+        axis.text.x = element_text(size = 15),
+
+        axis.text.y = element_text(size = 15, face = "bold"),
+
+        legend.position = "none",
+
+        legend.title = element_text(size = 15, face = "bold"),
+
+        legend.text = element_text(size = 15, face = "bold"),
+
+        axis.title.x = element_text(size = 15, face = "bold", colour = "blue"),
+
+        axis.title.y = element_text(size = 15, face = "bold", colour = "blue"))
+ 
+#ggsave("../Figures/Hazard_ratios/proteomics_M2.jpeg", width = 5, height = 6, dpi = 600, units = "in")
+ 
+#ggsave("../Figures/Hazard_ratios/proteomics_M2.pdf", width = 5, height = 6, dpi = 600, units = "in") 
+```
+** Hazard ratios plots for Haematology 
+*** Enrolment
+
+```{r}
+EnrHaema <- read_csv("../Processed_data/conditionalHR_adjusted_enrol_haematology.csv")
+ 
+EnrHaema %>% dplyr::arrange(desc(estimate)) %>% 
+
+  ggforestplot::forestplot(name = cytokines, estimate = estimate, 
+
+                           se = std.error, logodds = T, 
+
+                           boxsize = 0.2, 
+
+                           colour = significance, 
+
+                           xlab = "HR (95% CI)", 
+
+                           ylab = "Haematological parameters at Enrolment",
+
+                            title = "Controls               Cases",
+
+                           ) +
+
+theme(plot.title = element_text(hjust = 0.85, face = "bold", size = 15),
+
+        axis.text.x = element_text(size = 15),
+
+        axis.text.y = element_text(size = 15, face = "bold"),
+
+        legend.position = "none",
+
+        legend.title = element_text(size = 15, face = "bold"),
+
+        legend.text = element_text(size = 15, face = "bold"),
+
+        axis.title.x = element_text(size = 15, face = "bold", colour = "blue"),
+
+        axis.title.y = element_text(size = 15, face = "bold", colour = "blue"))
+ 
+#ggsave("../Figures/Hazard_ratios/Haematological_enrol.jpeg", width = 6.5, height = 4.5, dpi = 600, units = "in")
+
+#ggsave("../Figures/Hazard_ratios/Haematological_enrol.pdf", width = 6.5, height = 4.5, dpi = 600, units = "in") 
+ 
+ 
+```
+
+*** Month 2
+```{r}
+M2Haema <- read_csv("../Processed_data/conditionalHR_adjusted_M2_haematology.csv")
+
+M2Haema %>% dplyr::arrange(desc(estimate)) %>% 
+
+  ggforestplot::forestplot(name = cytokines, estimate = estimate, 
+
+                           se = std.error, logodds = T, 
+
+                           boxsize = 0.2, 
+
+                           colour = significance, 
+
+                           xlab = "HR (95% CI)", 
+
+                           ylab = "Haematological parameters at Month 2",
+
+                            title = paste0("Controls", "              ", "Cases"),
+
+                           ) +
+
+theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+
+        axis.text.x = element_text(size = 15),
+
+        axis.text.y = element_text(size = 15, face = "bold"),
+
+        legend.position = "none",
+
+        legend.title = element_text(size = 15, face = "bold"),
+
+        legend.text = element_text(size = 15, face = "bold"),
+
+        axis.title.x = element_text(size = 15, face = "bold", colour = "blue"),
+
+        axis.title.y = element_text(size = 15, face = "bold", colour = "blue"))
+ 
+#ggsave("../Figures/Hazard_ratios/Haematological_M2.jpeg", width = 6.5, height = 4.5, dpi = 600, units = "in")
+ 
+#ggsave("../Figures/Hazard_ratios/Haematological_M2.pdf", width = 6.5, height = 4.5, dpi = 600, units = "in")  
+```
+
+### MUAC Unadjusted Hazard ratios
+***** Month 2 MUAC 
+```{r}
+M24plex <- read_csv("../Processed_data/UnadjustedMUAC_HR/conditionalHR_m2_4plex.csv")
+
+M229plex <- read_csv("../Processed_data/UnadjustedMUAC_HR/conditionalHR_m2_29plex.csv")
+
+CombM2_4_29Plex <- bind_rows(M24plex, M229plex)
+
+#CombM2_4_29Plex$cytokines <- gsub("-", "", CombM2_4_29Plex$cytokines)
+
+CombM2_4_29Plex %>% dplyr::arrange(desc(estimate)) %>% 
+
+  ggforestplot::forestplot(name = cytokines, estimate = estimate, 
+
+                           se = std.error, logodds = T, 
+
+                           boxsize = 0.2, 
+
+                           colour = significance, 
+
+                           xlab = "HR (95% CI)", 
+
+                           ylab = "Cytokines and endothelial markers at Month 2",
+
+                            title = paste0("Controls", "                    ", "     Cases"),
+
+                           ) +
+
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+
+        axis.text.x = element_text(size = 15),
+
+        axis.text.y = element_text(size = 15, face = "bold"),
+
+        legend.position = "none",
+
+        legend.title = element_text(size = 15, face = "bold"),
+
+        legend.text = element_text(size = 15, face = "bold"),
+
+        axis.title.x = element_text(size = 15, face = "bold", colour = "blue"),
+
+        axis.title.y = element_text(size = 15, face = "bold", colour = "blue"))
+ 
+#ggsave("../Figures/Hazard_ratios/UnadjustedMUAC/Endothelialand cytokines_M2.jpeg", width = 6, height= 10, dpi = 600, units = "in")
+#ggsave("../Figures/Hazard_ratios/UnadjustedMUAC/Endothelialand cytokines_M2.pdf", width = 6, height= 10, dpi = 600, units = "in")
+ 
+```
+
+
+***** Enrolment
+
+```{r}
+Enr4plex <- read_csv("../Processed_data/UnadjustedMUAC_HR/conditionalHR_enrolment_4plex.csv")
+
+Enr29plex <- read_csv("../Processed_data/UnadjustedMUAC_HR/conditionalHR_enrolment_29plex.csv")
+
+CombEnrl4_29Plex <- bind_rows(Enr4plex, Enr29plex)
+
+CombEnrl4_29Plex %>% dplyr::arrange(desc(estimate)) %>% 
+
+  ggforestplot::forestplot(name = cytokines, estimate = estimate, 
+
+                           se = std.error, logodds = T, 
+
+                           boxsize = 0.2, 
+
+                           colour = significance, 
+
+                           xlab = "HR (95% CI)", 
+
+                           ylab = "Cytokines and endothelial markers at Enrolment",
+
+                            title = paste0("Controls", "                    ", "Cases"),
+
+                           ) +
+
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+
+        axis.text.x = element_text(size = 15),
+
+        axis.text.y = element_text(size = 15, face = "bold"),
+
+        legend.position = "none",
+
+        legend.title = element_text(size = 15, face = "bold"),#size = 15 for pdf
+
+        legend.text = element_text(size = 15, face = "bold"),
+
+        axis.title.x = element_text(size = 15, face = "bold", colour = "blue"),#size = 65 for jpeg
+
+        axis.title.y = element_text(size = 15, face = "bold", colour = "blue"))
+ 
+ 
+#ggsave("../Figures/Hazard_ratios/UnadjustedMUAC/Endothelialand cytokines_enrolment.jpeg", width = 6, height= 10, dpi = 600, units = "in")
+ 
+#ggsave("../Figures/Hazard_ratios/UnadjustedMUAC/Endothelialand cytokines_enrolment.pdf", width = 6, height= 10, dpi = 600, units = "in")
+```
+
+** Hazard ratios plots for proteomics
+*** Enrolment
+
+```{r}
+EnrProteomics <- read_csv("../Processed_data/UnadjustedMUAC_HR/conditionalHR_proteins_enrolment.csv")
+
+#EnrProteomics$Gene.names <- gsub("-", "", EnrProteomics$Gene.names)
+ 
+EnrProteomicsSign <- EnrProteomics %>% dplyr::filter(significance == "Yes")
+ 
+EnrProteomicsSign %>% dplyr::arrange(desc(estimate)) %>% 
+
+  ggforestplot::forestplot(name = Gene.names, estimate = estimate, 
+
+                           se = std.error, logodds = T, 
+
+                           boxsize = 0.2, 
+
+                           colour = significance, 
+
+                           xlab = "HR (95% CI)", 
+
+                           ylab = "Proteins at Enrolment",
+
+                            title = paste0("Controls   ", "               ", "Cases"),
+
+                           ) +
+
+theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+
+        axis.text.x = element_text(size = 15),
+
+        axis.text.y = element_text(size = 15, face = "bold"),
+
+        legend.position = "none",
+
+        legend.title = element_text(size = 15, face = "bold"),
+
+        legend.text = element_text(size = 15, face = "bold"),
+
+        axis.title.x = element_text(size = 15, face = "bold", colour = "blue"),
+
+        axis.title.y = element_text(size = 15, face = "bold", colour = "blue"))
+ 
+#ggsave("../Figures/Hazard_ratios/UnadjustedMUAC/proteomics_enrol.jpeg", width = 5.5, height = 8, dpi = 600, units = "in")
+#ggsave("../Figures/Hazard_ratios/UnadjustedMUAC/proteomics_enrol.pdf", width = 5.5, height = 8, dpi = 600, units = "in")
+```
+
+*** Month 2
+
+```{r}
+M2Proteomics <- read_csv("../Processed_data/UnadjustedMUAC_HR/conditionalHR_proteinm2.csv")
+
+M2ProteomicsSign <- M2Proteomics %>% dplyr::filter(significance == "Yes")
+ 
+M2ProteomicsSign %>% dplyr::arrange(desc(estimate)) %>% 
+
+  ggforestplot::forestplot(name = Gene.names, estimate = estimate, 
+
+                           se = std.error, logodds = T, 
+
+                           boxsize = 0.2, 
+
+                           colour = significance, 
+
+                           xlab = "HR (95% CI)", 
+
+                           ylab = "Proteins at Month 2",
+
+                            title = paste0("Controls", "                ", "Cases"),
+
+                           ) +
+
+theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+
+        axis.text.x = element_text(size = 15),
+
+        axis.text.y = element_text(size = 15, face = "bold"),
+
+        legend.position = "none",
+
+        legend.title = element_text(size = 15, face = "bold"),
+
+        legend.text = element_text(size = 15, face = "bold"),
+
+        axis.title.x = element_text(size = 15, face = "bold", colour = "blue"),
+
+        axis.title.y = element_text(size = 15, face = "bold", colour = "blue"))
+ 
+#ggsave("../Figures/Hazard_ratios/UnadjustedMUAC/proteomics_M2.jpeg", width = 5, height = 6, dpi = 600, units = "in")
+ 
+#ggsave("../Figures/Hazard_ratios/UnadjustedMUAC/proteomics_M2.pdf", width = 5, height = 6, dpi = 600, units = "in") 
+```
+
+** Hazard ratios plots for Haematology 
+*** Enrolment
+
+```{r}
+EnrHaema <- read_csv("../Processed_data/UnadjustedMUAC_HR/conditionalHR_enrolment_haematology.csv")
+ 
+EnrHaema %>% dplyr::arrange(desc(estimate)) %>% 
+
+  ggforestplot::forestplot(name = cytokines, estimate = estimate, 
+
+                           se = std.error, logodds = T, 
+
+                           boxsize = 0.2, 
+
+                           colour = significance, 
+
+                           xlab = "HR (95% CI)", 
+
+                           ylab = "Haematological parameters at Enrolment",
+
+                            title = "Controls               Cases",
+
+                           ) +
+
+theme(plot.title = element_text(hjust = 0.85, face = "bold", size = 15),
+
+        axis.text.x = element_text(size = 15),
+
+        axis.text.y = element_text(size = 15, face = "bold"),
+
+        legend.position = "none",
+
+        legend.title = element_text(size = 15, face = "bold"),
+
+        legend.text = element_text(size = 15, face = "bold"),
+
+        axis.title.x = element_text(size = 15, face = "bold", colour = "blue"),
+
+        axis.title.y = element_text(size = 15, face = "bold", colour = "blue"))
+ 
+#ggsave("../Figures/Hazard_ratios/UnadjustedMUAC/Haematological_enrol.jpeg", width = 6.5, height = 4.5, dpi = 600, units = "in")
+
+#ggsave("../Figures/Hazard_ratios/UnadjustedMUAC/Haematological_enrol.pdf", width = 6.5, height = 4.5, dpi = 600, units = "in") 
+ 
+ 
+```
+
+*** Month 2
+```{r}
+M2Haema <- read_csv("../Processed_data/UnadjustedMUAC_HR/conditionalHR_M2_haematology.csv")
+
+M2Haema %>% dplyr::arrange(desc(estimate)) %>% 
+
+  ggforestplot::forestplot(name = cytokines, estimate = estimate, 
+
+                           se = std.error, logodds = T, 
+
+                           boxsize = 0.2, 
+
+                           colour = significance, 
+
+                           xlab = "HR (95% CI)", 
+
+                           ylab = "Haematological parameters at Month 2",
+
+                            title = paste0("Controls", "              ", "Cases"),
+
+                           ) +
+
+theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+
+        axis.text.x = element_text(size = 15),
+
+        axis.text.y = element_text(size = 15, face = "bold"),
+
+        legend.position = "none",
+
+        legend.title = element_text(size = 15, face = "bold"),
+
+        legend.text = element_text(size = 15, face = "bold"),
+
+        axis.title.x = element_text(size = 15, face = "bold", colour = "blue"),
+
+        axis.title.y = element_text(size = 15, face = "bold", colour = "blue"))
+ 
+#ggsave("../Figures/Hazard_ratios/UnadjustedMUAC/Haematological_M2.jpeg", width = 6.5, height = 4.5, dpi = 600, units = "in")
+ 
+#ggsave("../Figures/Hazard_ratios/UnadjustedMUAC/Haematological_M2.pdf", width = 6.5, height = 4.5, dpi = 600, units = "in")  
+```
+
+
+### Lineplot
+```{r}
+baseline <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+
+baseline_Table_enrol <- baseline %>% 
+  dplyr::select(subjid, agemonth, sex, site, case, arm, pneumon, diarrho, cerebral, shock,ehg, elymph, eplatelet, ewbc, eneutrop, ends_with("0"))
+
+
+baseline_Table_enrol <- baseline_Table_enrol %>% dplyr::select(!ends_with("10"))
+
+baseline_Table_enrol <- baseline_Table_enrol %>% 
+    dplyr::select(subjid,agemonth, sex, site, case, arm, muac0, zlen0, zwei0,
+                  zwfl0,pneumon, diarrho, shock, cerebral,oedema0,
+                  ehg,eplatelet, ewbc, elymph, eneutrop)
+
+
+baseline_Table1 <- baseline %>% 
+  dplyr::select(subjid, agemonth, sex, site, case, arm, pneumon, diarrho, cerebral, shock, ends_with("2"))
+
+
+baseline_Table1 <- baseline_Table1 %>% dplyr::select(!ends_with("12"), -c(height2, weight2, datem2))
+
+baseline_Table_M2 <- baseline_Table1 %>% 
+  dplyr::select(subjid, agemonth, sex, site, case, arm, muac2, zlen2, zwei2, zwfl2, pneumon, diarrho, shock, cerebral,oedema2, hg2, platelet2, wbc2, lymph2, neutrop2)
+
+base_enrol <- baseline_Table_enrol %>% dplyr::select(c(1,5,7:10,16:20))
+base_enrol$Timepoint <- "Enrolment"
+
+
+base_M2 <- baseline_Table_M2 %>% dplyr::select(c(1,5,7:10,16:20))
+base_M2$Timepoint <- "Month 2"
+
+base_enrol <- base_enrol %>% 
+  pivot_longer(cols = -c(subjid,Timepoint, case),
+               names_to = "haematology",
+               values_to = "values")
+
+base_M2 <- base_M2 %>% 
+  pivot_longer(cols = -c(subjid,Timepoint,case),
+               names_to = "haematology",
+               values_to = "values")
+
+combined_lineplot_long <- bind_rows(base_enrol,base_M2)
+
+combined_lineplot_long <- combined_lineplot_long %>% 
+  dplyr::mutate(haematology = 
+                  case_when(haematology=="ehg"| haematology == "hg2" ~ "Haemoglobin",
+                            haematology=="eplatelet" | haematology == "platelet2" ~"Platelets",
+                            haematology=="ewbc" | haematology =="wbc2" ~ "WBCs",
+                            haematology=="elymph" | haematology == "lymph2" ~ "Lymphocytes",
+                            haematology=="eneutrop"| haematology == "neutrop2" ~ "Neutrophils", 
+                            haematology=="muac0"| haematology == "muac2" ~ "MUAC", TRUE ~ haematology))
+
+combined_lineplot_long <- combined_lineplot_long %>% 
+  dplyr::mutate(case = 
+                  case_when(case=="Case" ~ "Cases",
+                            case=="Control" ~ "Controls"))
+
+combined_lineplot_long_haem <- combined_lineplot_long %>% dplyr::filter(haematology %in% c("Haemoglobin",
+                    "Lymphocytes","Neutrophils","Platelets","WBCs","MUAC"))
+
+write_csv(combined_lineplot_long_haem, "../Processed_data/combined_lineplot_long_haematology.csv")
+```
+
+** Platelets
+```{r warning=FALSE}
+combined_lineplot_long_haem <- read_csv("../Processed_data/combined_lineplot_long_haematology.csv")
+
+combined_lineplot_long_haem %>%
+  dplyr::filter(haematology == "Platelets") %>%
+  ggplot(aes(x = Timepoint, y = values)) +
+
+  # Add boxplot
+  geom_boxplot(alpha = 0.2, outlier.shape = NA, width = 0.3) +
+
+    # Add individual subject lines and points
+  geom_line(aes(group = subjid, color = case), size = 0.75, alpha = 0.5) +
+  geom_smooth(aes(group=case), method = "loess", se = T, color = "red",alpha = 0.5, size = 1) +
+  
+  geom_point(aes(color = case), size = 0.7) +
+
+  # Color scales
+  ggsci::scale_color_nejm() +
+  #ggsci::scale_fill_nejm() +
+
+  # Facet by case
+  facet_grid(~case, scales = "free_y") +
+
+  # Add p-values
+  stat_compare_means(
+    comparisons = list(c("Enrolment", "Month 2")),
+    method = "wilcox.test",
+    paired = TRUE,
+    label = "p.format",
+    size = 2.8
+  ) +
+
+  # Labels and theme
+  labs(
+    y = "Platelets (10^3/µL)",
+    x = "Timepoint",
+    color = "Survival status",
+    fill = "Survival status"
+  ) +
+  theme_pubr() +
+  theme(
+    axis.title = element_text(face = "bold"),
+    strip.text = element_text(face = "bold"),
+    axis.text = element_text(face = "bold", size = 10),
+    legend.position = "none"
+  )
+
+ggsave("../Figures/Lineplots/Platelets_lineplot.pdf", height = 3.75, width = 4)
+```
+
+
+** Lymphocytes
+```{r warning=FALSE}
+combined_lineplot_long_haem <- read_csv("../Processed_data/combined_lineplot_long_haematology.csv")
+
+combined_lineplot_long_haem %>%
+  dplyr::filter(haematology == "Lymphocytes") %>%
+  ggplot(aes(x = Timepoint, y = values)) +
+
+  # Add boxplot
+  geom_boxplot(alpha = 0.2, outlier.shape = NA, width = 0.3) +
+
+  # Add individual subject lines and points
+  geom_line(aes(group = subjid, color = case), size = 0.75, alpha = 0.5) +
+  geom_smooth(aes(group=case), method = "loess", se = T, color = "red",alpha = 0.5, size = 1) +
+  geom_point(aes(color = case), size = 0.7) +
+
+  # Color scales
+  ggsci::scale_color_nejm() +
+  #ggsci::scale_fill_nejm() +
+
+  # Facet by case
+  facet_grid(~case, scales = "free_y") +
+
+  # Add p-values
+  stat_compare_means(
+    comparisons = list(c("Enrolment", "Month 2")),
+    method = "wilcox.test",
+    paired = TRUE,
+    label = "p.format",
+    size = 2.8
+  ) +
+
+  # Labels and theme
+  labs(
+    y = "Lymphocytes (10^3/µL)",
+    x = "Timepoint",
+    color = "Survival status",
+    fill = "Survival status"
+  ) +
+  theme_pubr() +
+  theme(
+    axis.title = element_text(face = "bold"),
+    strip.text = element_text(face = "bold"),
+    axis.text = element_text(face = "bold", size = 10),
+    legend.position = "none"
+  )
+
+ggsave("../Figures/Lineplots/Lymphocytes_lineplot.pdf", height = 3.75, width = 4)
+```
+
+*** Neutrophils
+```{r warning=FALSE}
+combined_lineplot_long_haem <- read_csv("../Processed_data/combined_lineplot_long_haematology.csv")
+
+combined_lineplot_long_haem %>%
+  dplyr::filter(haematology == "Neutrophils" & subjid != 789) %>%
+  ggplot(aes(x = Timepoint, y = values)) +
+
+  # Add boxplot
+  geom_boxplot(alpha = 0.2, outlier.shape = NA, width = 0.3) +
+
+  # Add individual subject lines and points
+  geom_line(aes(group = subjid, color = case), size = 0.75, alpha = 0.5) +
+  geom_smooth(aes(group=case), method = "loess", se = T, color = "red",alpha = 0.5, size = 1) +
+  geom_point(aes(color = case), size = 0.7) +
+
+  # Color scales
+  ggsci::scale_color_nejm() +
+  #ggsci::scale_fill_nejm() +
+
+  # Facet by case
+  facet_grid(~case, scales = "free_y") +
+
+  # Add p-values
+  stat_compare_means(
+    comparisons = list(c("Enrolment", "Month 2")),
+    method = "wilcox.test",
+    paired = TRUE,
+    label = "p.format",
+    size = 2.8
+  ) +
+
+  # Labels and theme
+  labs(
+    y = "Neutrophils (10^3/µL)",
+    x = "Timepoint",
+    color = "Survival status",
+    fill = "Survival status"
+  ) +
+  theme_pubr() +
+  theme(
+    axis.title = element_text(face = "bold"),
+    strip.text = element_text(face = "bold"),
+    axis.text = element_text(face = "bold", size = 10),
+    legend.position = "none"
+  )
+
+ggsave("../Figures/Lineplots/Neutrophils_lineplot.pdf", height = 3.75, width = 4)
+```
+
+*** WBCs
+```{r warning=FALSE}
+combined_lineplot_long_haem <- read_csv("../Processed_data/combined_lineplot_long_haematology.csv")
+
+combined_lineplot_long_haem %>%
+  dplyr::filter(haematology == "WBCs" & subjid != 789) %>%
+  ggplot(aes(x = Timepoint, y = values)) +
+
+  # Add boxplot
+  geom_boxplot(alpha = 0.2, outlier.shape = NA, width = 0.3) +
+
+  # Add individual subject lines and points
+  geom_line(aes(group = subjid, color = case), size = 0.75, alpha = 0.5) +
+  geom_smooth(aes(group=case), method = "loess", se = T, color = "red",alpha = 0.5, size = 1) +
+  geom_point(aes(color = case), size = 0.7) +
+
+  # Color scales
+  ggsci::scale_color_nejm() +
+  #ggsci::scale_fill_nejm() +
+
+  # Facet by case
+  facet_grid(~case, scales = "free_y") +
+
+  # Add p-values
+  stat_compare_means(
+    comparisons = list(c("Enrolment", "Month 2")),
+    method = "wilcox.test",
+    paired = TRUE,
+    label = "p.format",
+    size = 2.8
+  ) +
+
+  # Labels and theme
+  labs(
+    y = "WBCs (10^3/µL)",
+    x = "Timepoint",
+    color = "Survival status",
+    fill = "Survival status"
+  ) +
+  theme_pubr() +
+  theme(
+    axis.title = element_text(face = "bold"),
+    strip.text = element_text(face = "bold"),
+    axis.text = element_text(face = "bold", size = 10),
+    legend.position = "none"
+  )
+
+ggsave("../Figures/Lineplots/WBCs_lineplot.pdf", height = 3.75, width = 4)
+```
+
+
+**Haemoglobin
+```{r warning=FALSE}
+combined_lineplot_long_haem <- read_csv("../Processed_data/combined_lineplot_long_haematology.csv")
+
+combined_lineplot_long_haem_anaemia <- combined_lineplot_long_haem %>%
+  dplyr::filter(haematology == "Haemoglobin" & subjid != 551) # 551 an outlier
+
+
+combined_lineplot_long_haem_anaemia <- combined_lineplot_long_haem_anaemia %>% 
+  dplyr::mutate(anaemia_status = case_when(values > 11 ~ "None",
+                                           values < 7 ~ "Severe",
+                                           values >= 10 & values <=11 ~ "Mild",
+                                           values >= 7 & values < 10 ~ "Moderate"))
+
+
+combined_lineplot_long_haem_anaemia$anaemia_status <- 
+  factor(combined_lineplot_long_haem_anaemia$anaemia_status,
+         levels = c("None","Mild", 
+                    "Moderate", "Severe"))
+
+group_stats <- combined_lineplot_long_haem_anaemia %>% 
+  dplyr::filter(Timepoint=="Month 2" & case == "Cases") %>% 
+  group_by(anaemia_status) %>% 
+  summarise(n = sum(!is.na(anaemia_status)),
+            prop = n/53*100) %>% 
+  ungroup() %>% slice(-5)
+
+
+summary_label <- paste0(
+  "None (n=", group_stats$n[group_stats$anaemia_status == "None"], "):        ", round(group_stats$prop[1], 1),"%" , "\n",
+  "Mild (n=", group_stats$n[group_stats$anaemia_status == "Mild"], "):            ", round(group_stats$prop[2], 1), "%" ,  "\n",
+  "Moderate (n=", group_stats$n[group_stats$anaemia_status == "Moderate"], "): ", round(group_stats$prop[3], 1),"%", "\n", 
+  "Severe (n=", group_stats$n[group_stats$anaemia_status == "Severe"], "):         ",
+  round(group_stats$prop[4], 1), "%"
+)
+
+p <- ggplot(data = combined_lineplot_long_haem_anaemia, 
+            aes(x = Timepoint, y = values)) +
+
+  # Add boxplot
+  geom_boxplot(alpha = 0.2, outlier.shape = NA, width = 0.3) +
+  
+
+  # Add individual subject lines and points
+  geom_line(aes(group = subjid, color = case), size = 0.75, alpha = 0.5) +
+  geom_smooth(aes(group=case), method = "loess", se = T, color = "red",alpha = 0.5, size = 1) +
+  geom_point(aes(color = case), size = 0.7) +
+  geom_hline(yintercept = 11,color="darkgreen", linewidth=0.7, linetype=2)+
+  geom_hline(yintercept = 10,color="purple", linewidth=0.7, linetype=2)+
+  geom_hline(yintercept = 7,color="brown", linewidth=0.7, linetype=2)+
+  # Shaded regions
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = 10, ymax = 11, fill = "grey80", alpha = 0.35) + 
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = 7, ymax = 10, fill = "grey40", alpha = 0.3) +
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = 4, ymax = 7, fill = "grey10", alpha = 0.3) +
+
+ # geom_label(data = data.frame(
+ #    case = "Cases",  # only show in this facet
+ #    x = 1.85,
+ #    y = 17.55,
+ #    label = summary_label),
+ #  aes(x = x, y = y, label = label),
+ #  size = 3.25, hjust = 0, vjust = 1,
+ #  fill = "white", color = "black", 
+ #  label.size = 0.4, fontface = "plain",
+ #  inherit.aes = FALSE) +
+ # 
+  # Color scales
+  ggsci::scale_color_nejm() +
+  #ggsci::scale_fill_nejm() +
+
+  # Facet by case
+  facet_grid(~case, scales = "free_y") +
+
+  # Add p-values
+  stat_compare_means(
+    comparisons = list(c("Enrolment", "Month 2")),
+    method = "wilcox.test",
+    paired = TRUE,
+    label = "p.format",
+    size = 2.8
+  ) +
+
+  # Labels and theme
+  labs(
+    y = "Haemoglobin (g/dl)",
+    x = "Timepoint",
+    color = "Survival status",
+    fill = "Survival status"
+  ) +
+  theme_pubr() +
+   theme(
+    axis.title = element_text(face = "bold", size = 10),
+    strip.text = element_text(face = "bold", size = 10),
+    axis.text = element_text(face = "bold", size = 10),
+    legend.position = "none"
+  )
+
+p
+
+ggsave("../Figures/Lineplots/Haemoglobin_lineplot_Jul2025.pdf", 
+       height = 3.75, width = 4)
+
+group_stats <- combined_lineplot_long_haem_anaemia %>% 
+  dplyr::filter(Timepoint=="Enrolment" & case == "Cases") %>% 
+  group_by(anaemia_status) %>% 
+  summarise(n = sum(!is.na(anaemia_status)),
+            prop = n/60*100) %>% 
+  ungroup() %>% slice(-5)
+
+
+summary_label <- paste0(
+  "None (n=", group_stats$n[group_stats$anaemia_status == "None"], "):        ", round(group_stats$prop[1], 1),"%" , "\n",
+  "Mild (n=", group_stats$n[group_stats$anaemia_status == "Mild"], "):          ", round(group_stats$prop[2], 1), "%" ,  "\n",
+  "Moderate (n=", group_stats$n[group_stats$anaemia_status == "Moderate"], "): ", round(group_stats$prop[3], 1),"%", "\n", 
+  "Severe (n=", group_stats$n[group_stats$anaemia_status == "Severe"], "):         ",
+  round(group_stats$prop[4], 1), "%"
+)
+
+p1 <- p + 
+  geom_label(data = data.frame(
+    case = "Cases",  # only show in this facet
+    x = 0.415,
+    y = 17.55,
+    label = summary_label),
+  aes(x = x, y = y, label = label),
+  size = 3.25, hjust = 0, vjust = 1,
+  fill = "white", color = "black", 
+  label.size = 0.4, fontface = "plain",
+  inherit.aes = FALSE)
+
+p1
+
+
+###############
+
+group_stats <- combined_lineplot_long_haem_anaemia %>% 
+  dplyr::filter(Timepoint=="Enrolment" & case == "Controls") %>% 
+  group_by(anaemia_status) %>% 
+  summarise(n = sum(!is.na(anaemia_status)),
+            prop = n/62*100) %>% 
+  ungroup() %>% slice(-5)
+
+
+summary_label <- paste0(
+  "None (n=", group_stats$n[group_stats$anaemia_status == "None"], "):        ", round(group_stats$prop[1], 1),"%" , "\n",
+  "Mild (n=", group_stats$n[group_stats$anaemia_status == "Mild"], "):          ", round(group_stats$prop[2], 1), "%" ,  "\n",
+  "Moderate (n=", group_stats$n[group_stats$anaemia_status == "Moderate"], "): ", round(group_stats$prop[3], 1),"%", "\n", 
+  "Severe (n=", group_stats$n[group_stats$anaemia_status == "Severe"], "):         ",
+  round(group_stats$prop[4], 1), "%"
+)
+
+p2 <- p1 + 
+  geom_label(data = data.frame(
+    case = "Controls",  # only show in this facet
+    x = 0.425,
+    y = 17.55,
+    label = summary_label),
+  aes(x = x, y = y, label = label),
+  size = 3.25, hjust = 0, vjust = 1,
+  fill = "white", color = "black", 
+  label.size = 0.4, fontface = "plain",
+  inherit.aes = FALSE)
+
+p2
+
+########################################################################
+
+
+group_stats <- combined_lineplot_long_haem_anaemia %>% 
+  dplyr::filter(Timepoint == "Month 2" & case == "Controls") %>% 
+  group_by(anaemia_status) %>% 
+  summarise(n = sum(!is.na(values)),
+            prop = n/57*100) %>% ungroup() %>% slice(-4)
+
+
+summary_label <- paste0(
+  "None (n=", group_stats$n[group_stats$anaemia_status == "None"], "):        ", round(group_stats$prop[1], 1),"%" , "\n",
+  "Mild (n=", group_stats$n[group_stats$anaemia_status == "Mild"], "):          ", round(group_stats$prop[2], 1), "%" ,  "\n",
+  "Moderate (n=", group_stats$n[group_stats$anaemia_status == "Moderate"], "): ", round(group_stats$prop[3], 1),"%", "\n", 
+  "Severe (n=",0, "):            ",
+  0, "%"
+)
+
+p3 <- p2 + 
+  geom_label(data = data.frame(
+    case = "Controls",  # only show in this facet
+    x = 1.85,
+    y = 17.55,
+    label = summary_label),
+  aes(x = x, y = y, label = label),
+  size = 3.25, hjust = 0, vjust = 1,
+  fill = "white", color = "black", 
+  label.size = 0.4, fontface = "plain",
+  inherit.aes = FALSE)
+
+p3
+
+ggsave("../Figures/Lineplots/Haemoglobin_lineplot.pdf", height = 6, width = 10.75)
+```
+
+
+*** MUAC
+
+```{r warning=FALSE}
+combined_lineplot_long_haem <- read_csv("../Processed_data/combined_lineplot_long_haematology.csv")
+
+combined_lineplot_long_MUAC <- combined_lineplot_long_haem %>%
+  dplyr::filter(haematology == "MUAC") 
+
+combined_lineplot_long_MUAC <- combined_lineplot_long_MUAC %>% 
+  dplyr::mutate(wasting_status = 
+                  case_when(values >= 12.5 ~ "No",
+                  values < 11.5 ~ "Severe",
+                  values >= 11.5 & values <12.5 ~ "Moderate"))
+
+
+combined_lineplot_long_MUAC$wasting_status <- 
+  factor(combined_lineplot_long_MUAC$wasting_status,
+         levels = c("No","Moderate", "Severe"))
+
+
+p <- ggplot(data = combined_lineplot_long_MUAC, aes(x = Timepoint, y = values)) +
+  
+  # Add boxplot
+  geom_boxplot(alpha = 0.2, outlier.shape = NA, width = 0.3) +
+
+  # Add individual subject lines and points
+  geom_line(aes(group = subjid, color = case), size = 0.75, alpha = 0.5) +
+  geom_smooth(aes(group=case), method = "loess", se = T, 
+              color = "red",alpha = 0.5, size = 1)+
+   geom_hline(yintercept = 12.5,color="darkgreen", linewidth=0.7, linetype=2)+
+  geom_hline(yintercept = 11.5,color="purple", linewidth=0.7, linetype=2)+
+  # Shaded regions
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = 11.5, ymax = 12.5, fill = "grey80", alpha = 0.35) + 
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = 7, ymax = 11.5, fill = "grey20", alpha = 0.3) +
+  
+  
+  geom_point(aes(color = case), size = 0.7) +
+
+  # Color scales
+  ggsci::scale_color_nejm() +
+  #ggsci::scale_fill_nejm() +
+
+  # Facet by case
+  facet_grid(~case, scales = "free_y") +
+
+  # Add p-values
+  stat_compare_means(
+    comparisons = list(c("Enrolment", "Month 2")),
+    method = "wilcox.test",
+    paired = TRUE,
+    label = "p.format",
+    size = 2.8
+  ) +
+
+  # Labels and theme
+  labs(
+    y = "MUAC (cm)",
+    x = "Timepoint",
+    color = "Survival status",
+    fill = "Survival status"
+  ) +
+  theme_pubr() +
+  theme(
+    axis.title = element_text(face = "bold", size = 10),
+    strip.text = element_text(face = "bold", size = 10),
+    axis.text = element_text(face = "bold", size = 10),
+    legend.position = "none"
+  )
+
+ggsave("../Figures/Lineplots/MUAC_lineplot_Jul2025.pdf", height = 3.75, width = 4)
+
+
+combined_lineplot_long_MUAC$wasting_status <- 
+  factor(combined_lineplot_long_MUAC$wasting_status,
+         levels = c("No","Moderate", "Severe"))
+
+group_stats <- combined_lineplot_long_MUAC %>% 
+  dplyr::filter(Timepoint == "Enrolment" & case == "Cases") %>% 
+  group_by(wasting_status) %>% 
+  summarise(n = sum(!is.na(values)),
+            prop = n/64*100) %>% ungroup()#  %>% slice(-4)
+
+summary_label <- paste0(
+  "No (n=",0,       "):              ",
+  0,"%" , "\n",
+  "Moderate (n=", group_stats$n[group_stats$wasting_status == "Moderate"], "):", round(group_stats$prop[1], 1),"%", "\n", 
+    "Severe (n=", group_stats$n[group_stats$wasting_status == "Severe"], "): ", round(group_stats$prop[2], 1),"%")
+
+p1 <- p + geom_label(data = data.frame(
+    case = "Cases",  # only show in this facet
+    x = 0.415,
+    y = 15.55,
+    label = summary_label),
+  aes(x = x, y = y, label = label),
+  size = 3.25, hjust = 0, vjust = 1,
+  fill = "white", color = "black", 
+  label.size = 0.4, fontface = "plain",
+  inherit.aes = FALSE)
+
+
+group_stats <- combined_lineplot_long_MUAC %>% 
+  dplyr::filter(Timepoint == "Month 2" & case == "Cases") %>% 
+  group_by(wasting_status) %>% 
+  summarise(n = sum(!is.na(values)),
+            prop = n/57*100) %>% ungroup() %>% slice(-4)
+
+summary_label <- paste0(
+  "No (n=", group_stats$n[group_stats$wasting_status == "No"], "):              ", round(group_stats$prop[1], 1), ".0" , "%" , "\n",
+  "Moderate (n=", group_stats$n[group_stats$wasting_status == "Moderate"], "):", round(group_stats$prop[2], 1), "%" ,  "\n",
+  "Severe (n=", group_stats$n[group_stats$wasting_status == "Severe"], "):    ", round(group_stats$prop[3], 1),"%")
+
+p2 <- p1 + 
+  geom_label(data = data.frame(
+    case = "Cases",  # only show in this facet
+    x = 1.85,
+    y = 15.55,
+    label = summary_label),
+  aes(x = x, y = y, label = label),
+  size = 3.25, hjust = 0, vjust = 1,
+  fill = "white", color = "black", 
+  label.size = 0.4, fontface = "plain",
+  inherit.aes = FALSE)
+
+  
+
+group_stats <- combined_lineplot_long_MUAC %>% 
+  dplyr::filter(Timepoint == "Enrolment" & case == "Controls") %>% 
+  group_by(wasting_status) %>% 
+  summarise(n = sum(!is.na(values)),
+            prop = n/64*100) %>% ungroup()# %>% slice(-4)
+
+
+summary_label <- paste0(
+  "No (n=", group_stats$n[group_stats$wasting_status == "No"], "):             ", round(group_stats$prop[1], 1),"%" , "\n",
+  "Moderate (n=", group_stats$n[group_stats$wasting_status == "Moderate"],"):  ", round(group_stats$prop[2], 1), "%" ,  "\n",
+  "Severe (n=", group_stats$n[group_stats$wasting_status == "Severe"], "):  ", round(group_stats$prop[3], 1),"%"
+)
+
+p3 <- p2 + 
+  geom_label(data = data.frame(
+    case = "Controls",  # only show in this facet
+    x = 0.425,
+    y = 15.95,
+    label = summary_label),
+  aes(x = x, y = y, label = label),
+  size = 3.25, hjust = 0, vjust = 1,
+  fill = "white", color = "black", 
+  label.size = 0.4, fontface = "plain",
+  inherit.aes = FALSE)
+
+#################################################
+group_stats <- combined_lineplot_long_MUAC %>% 
+  dplyr::filter(Timepoint == "Month 2" & case == "Controls") %>% 
+  group_by(wasting_status) %>% 
+  summarise(n = sum(!is.na(values)),
+            prop = n/62*100) %>% ungroup() %>% slice(-4)
+
+
+summary_label <- paste0(
+  "No (n=", group_stats$n[group_stats$wasting_status == "No"], "):            ", round(group_stats$prop[1], 1),"%" , "\n",
+  "Moderate (n=", group_stats$n[group_stats$wasting_status == "Moderate"],"): ", round(group_stats$prop[2], 1), "%" ,  "\n",
+  "Severe (n=", group_stats$n[group_stats$wasting_status == "Severe"], "):    ", round(group_stats$prop[3], 1),"%"
+)
+
+p4 <- p3 + 
+  geom_label(data = data.frame(
+    case = "Controls",  # only show in this facet
+    x = 2,
+    y = 15.95,
+    label = summary_label),
+  aes(x = x, y = y, label = label),
+  size = 3.25, hjust = 0, vjust = 1,
+  fill = "white", color = "black", 
+  label.size = 0.4, fontface = "plain",
+  inherit.aes = FALSE)
+
+p4
+ggsave("../Figures/Lineplots/MUAC_lineplot.pdf", height = 3.75, width = 4)
+```
+
+
+### Box plots
+
+*** IGFBP6
+```{r warning=FALSE}
+
+proteomics_m2 <- read_csv("../Raw_data/Proteomics_rawdata_month2.csv")
+
+proteomics_m2 <- proteomics_m2 %>% dplyr::rename("subjid"="record_id")
+
+baseline <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+
+cases_base <- baseline %>% dplyr::select(subjid, case)
+
+cases_base$subjid <- as.character(cases_base$subjid)
+
+proteomics_m2$subjid <- as.character(proteomics_m2$subjid)
+
+proteomics_M2 <- proteomics_m2
+
+proteomics_M2_bxplot <- proteomics_M2 %>% 
+  dplyr::left_join(., cases_base, join_by(subjid))
+
+proteomics_M2_bxplot$TP <- "Month 2"
+
+proteomics <- read_csv("../Raw_data/Proteomics_rawdata_enrol.csv")
+
+proteomics <- proteomics %>% dplyr::rename("subjid"="record_id")
+
+cases_base$subjid <- as.character(cases_base$subjid)
+
+proteomics$subjid <- as.character(proteomics$subjid)
+
+proteomics_Enr <- proteomics
+
+proteomics_Enr_bxplot <- proteomics_Enr %>% 
+  dplyr::left_join(., cases_base, join_by(subjid))
+
+proteomics_Enr_bxplot$TP <- "Enrolment"
+
+
+proteomics_all <- bind_rows(proteomics_M2_bxplot,proteomics_Enr_bxplot)
+proteomics_all <- proteomics_all %>% dplyr::select(subjid,IGFBP6,case,TP)
+
+proteomics_all <- proteomics_all %>% 
+  dplyr::mutate(case = case_when(case == "Case" ~ "Cases",
+                                 case == "Control" ~ "Controls"))
+
+proteomics_all$case <- factor(proteomics_all$case,
+                                levels = c("Cases","Controls"))
+pval_df <- data.frame(
+  TP = c("Enrolment", "Month 2"),         # Facet variable
+  group1 = c("Cases", "Cases"),
+  group2 = c("Controls", "Controls"),
+  p = c(0.000094, 0.084),
+  y.position = c(log10(10), log10(10)),  # Customize Y positions
+  label = c("p = 0.000094", "p = 0.084")
+)
+
+proteomics_all %>% dplyr::filter(!is.na(case)) %>% 
+ggboxplot(x = "case", "IGFBP6", fill = "case", 
+          bxp.errorbar = TRUE, 
+          size = 0.15,
+          width = 0.45,
+          bxp.errorbar.width = 0.15,
+          #facet.by = "TP"
+          ) +
+ # geom_point(size = 0.5)) +
+  scale_y_log10() +
+ stat_pvalue_manual(
+    pval_df,
+    label = "label",
+    label.size = 2.88,
+    y.position = "y.position"
+  ) +
+  labs(y = "IGFBP6 in pg/ml", x = NULL) +
+  ggsci::scale_fill_nejm() +
+  theme(legend.position = "none",
+        strip.text = element_text(size = 12, face = "bold"),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 9),
+        axis.text.x = element_text(size = 9, face = "bold"))+
+facet_wrap(~TP)
+
+#ggsave("../Figures/IGFBP6.jpeg", height = 2.5, width = 2.5)
+
+#ggsave("../Figures/Boxplots/IGFBP6.pdf", height = 3.75, width = 4)
+ggsave("../Figures/Boxplots/IGFBP6_boxplot.pdf", height = 3.75, width = 4)
+```
+
+*** ADAMTS13
+```{r}
+
+allplates_4plex <- read_csv("../Raw_data/rawdata_4plex_enrol.csv")
+
+cases_base$subjid <- as.character(cases_base$subjid)
+
+allplates_4plex$subjid <- as.character(allplates_4plex$subjid)
+
+allplates_4plex_bxplot_ENR <- allplates_4plex %>% 
+  dplyr::left_join(., cases_base, join_by(subjid))
+
+allplates_4plex_bxplot_ENR$TP <- "Enrolment"
+
+
+
+allplates_4plex_M2 <- read_csv("../Raw_data/rawdata_4plex_m2.csv")
+
+
+cases_base$subjid <- as.character(cases_base$subjid)
+
+allplates_4plex_M2$subjid <- as.character(allplates_4plex_M2$subjid)
+
+
+allplates_4plex_bxplot_M2 <- allplates_4plex_M2 %>% 
+  dplyr::left_join(., cases_base, join_by(subjid))
+
+colnames(allplates_4plex_bxplot_M2) <- gsub("-2$", "", colnames(allplates_4plex_bxplot_M2))
+
+allplates_4plex_bxplot_M2$TP <- "Month 2"
+
+
+combined4Plex <- bind_rows(allplates_4plex_bxplot_ENR,
+                           allplates_4plex_bxplot_M2)
+
+colnames(combined4Plex) <- gsub("-", "", colnames(combined4Plex))
+
+combined4Plex <- combined4Plex %>% 
+  dplyr::mutate(case = case_when(case == "Case" ~ "Cases",
+                                 case == "Control" ~ "Controls"))
+
+combined4Plex$case <- factor(combined4Plex$case, 
+                              levels = c("Cases","Controls"))
+
+
+write_csv(combined4Plex,"../Processed_data/combined_4plex_boxplot.csv")
+
+
+pvals <- compare_means(
+  ADAMTS13 ~ case,
+  group.by = "TP",
+  data = combined4Plex,
+  method = "wilcox.test"
+)
+ 
+# STEP 2: Add custom y-positions for p-value labels per timepoint
+pvals <- pvals %>%
+  mutate(y.position = ifelse(TP == "Enrolment", log10(1900), log10(1900)))
+ 
+# STEP 3: Plot with facet_wrap and correct p-values
+
+combined4Plex %>% dplyr::filter(!is.na(case)) %>% 
+ggboxplot(x = "case", y = "ADAMTS13", fill = "case", 
+          bxp.errorbar = TRUE,
+          size = 0.15,
+          width = 0.45,
+          bxp.errorbar.width = 0.15) +
+  scale_y_log10() +
+  stat_pvalue_manual(
+    pvals,
+    label = "p.format",
+    label.size = 2.88,
+    y.position = "y.position"
+  ) +
+  labs(y = "ADAMTS13 in pg/ml", x = NULL) +
+  ggsci::scale_fill_nejm() +
+  theme(legend.position = "none",
+        strip.text = element_text(size = 12, face = "bold"),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 9),
+        axis.text.x = element_text(size = 9, face = "bold"))+
+  facet_wrap(~TP)
+
+#ggsave("../Figures/Boxplots/ADAMTS13.jpeg", height = 2.5, width = 2.5)
+
+#ggsave("../Figures/Boxplots/ADAMTS13.pdf", height = 3.75, width = 4)
+
+ggsave("../Figures/Boxplots/ADAMTS13_boxplot.pdf", height = 3.75, width = 4)
+```
+
+
+```{r}
+allplates_29plex_M2<- read_csv("../Raw_data/rawdata_29plex_m2.csv")
+
+baseline <- read_xlsx("../Raw_data/CTX_case_control_variables_for_James10082023.xlsx")
+
+cases_base <- baseline %>% dplyr::select(subjid, case)
+cases_base$subjid <- as.character(cases_base$subjid)
+
+allplates_29plex_M2$subjid <- as.character(allplates_29plex_M2$subjid)
+
+allplates_29plex_bxplot_M2 <- allplates_29plex_M2 %>% 
+  dplyr::left_join(., cases_base, join_by(subjid))
+
+allplates_29plex_bxplot_M2$TP <- "Month 2"
+
+colnames(allplates_29plex_bxplot_M2) <- gsub("-2$", "", colnames(allplates_29plex_bxplot_M2))
+
+colnames(allplates_29plex_bxplot_M2) <- gsub("-", "", colnames(allplates_29plex_bxplot_M2))
+
+allplates_29plex_bxplot_Enr <- read_csv("../Raw_data/rawdata_29plex_enrol.csv")
+
+allplates_29plex_bxplot_Enr$subjid <- as.character(allplates_29plex_bxplot_Enr$subjid)
+
+allplates_29plex_bxplot_Enr <- allplates_29plex_bxplot_Enr %>% 
+  dplyr::left_join(., cases_base, join_by(subjid))
+
+allplates_29plex_bxplot_Enr$TP <- "Enrolment"
+
+colnames(allplates_29plex_bxplot_Enr) <- gsub("-", "", colnames(allplates_29plex_bxplot_Enr))
+
+combined29Plex <- bind_rows(allplates_29plex_bxplot_Enr, allplates_29plex_bxplot_M2)
+
+combined29Plex <- combined29Plex %>% 
+  dplyr::mutate(case = case_when(case == "Case" ~ "Cases",
+                                 case == "Control" ~ "Controls"))
+
+combined29Plex$case <- factor(combined29Plex$case, 
+                              levels = c("Cases","Controls"))
+
+write_csv(combined29Plex,"../Processed_data/combined_29plex_boxplot.csv")
+```
+
+*** IFNa2
+
+```{r}
+combined29Plex <- read_csv("../Processed_data/combined_29plex_boxplot.csv")
+
+combined29Plex$case <- factor(combined29Plex$case, 
+                              levels = c("Cases","Controls"))
+
+
+pvals <- compare_means(
+  IFNa2 ~ case,
+  group.by = "TP",
+  data = combined29Plex,
+  method = "wilcox.test"
+)
+ 
+# STEP 2: Add custom y-positions for p-value labels per timepoint
+pvals <- pvals %>%
+  mutate(y.position = ifelse(TP == "Enrolment", log10(400), log10(1200)))
+ 
+# STEP 3: Plot with facet_wrap and correct p-values
+
+combined29Plex %>% dplyr::filter(!is.na(case)) %>% 
+ggboxplot(x = "case", y = "IFNa2", fill = "case", 
+          bxp.errorbar = TRUE,
+          size = 0.15,
+          width = 0.45,
+          bxp.errorbar.width = 0.15) +
+  scale_y_log10() +
+  stat_pvalue_manual(
+    pvals,
+    label = "p.format",
+    label.size = 2.88,
+    y.position = "y.position"
+  ) +
+  labs(y = "IFNa2 in pg/ml", x = NULL) +
+  ggsci::scale_fill_nejm() +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.title = element_text(size = 12, face = "bold"),
+    axis.text = element_text(size = 9),
+    axis.text.x = element_text(size = 9, face = "bold")
+  ) +
+  facet_wrap(~TP)
+
+
+#ggsave("Results/IFNa2.jpeg", height = 2.5, width = 2.5)
+
+#ggsave("../Figures/Boxplots/IFNa2.pdf", height = 3.75, width = 4)
+
+ggsave("../Figures/Boxplots/IFNa2_boxplot.pdf", height = 3.75, width = 4)
+```
+
+*** IL15
+
+
+```{r}
+
+combined29Plex <- read_csv("../Processed_data/combined_29plex_boxplot.csv")
+
+combined29Plex$case <- factor(combined29Plex$case, 
+                              levels = c("Cases","Controls"))
+pvals <- compare_means(
+  IL15 ~ case,
+  group.by = "TP",
+  data = combined29Plex,
+  method = "wilcox.test"
+)
+ 
+# STEP 2: Add custom y-positions for p-value labels per timepoint
+pvals <- pvals %>%
+  mutate(y.position = ifelse(TP == "Enrolment", log10(300), log10(350)))
+ 
+# STEP 3: Plot with facet_wrap and correct p-values
+
+combined29Plex %>% dplyr::filter(!is.na(case)) %>% 
+ggboxplot(x = "case", y = "IL15", fill = "case", 
+          bxp.errorbar = TRUE,
+          size = 0.15,
+          width = 0.45,
+          bxp.errorbar.width = 0.15) +
+  scale_y_log10() +
+  stat_pvalue_manual(
+    pvals,
+    label = "p.format",
+    label.size = 2.88,
+    y.position = "y.position"
+  ) +
+  labs(y = "IL15 in pg/ml", x = NULL) +
+  ggsci::scale_fill_nejm() +
+  theme(legend.position = "none",
+        strip.text = element_text(size = 12, face = "bold"),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 9),
+        axis.text.x = element_text(size = 9, face = "bold"))+
+  facet_wrap(~TP)
+
+#ggsave("../Figures/Boxplots/IL15.jpeg", height = 2.5, width = 2.5)
+
+#ggsave("../Figures/IL15.pdf", height = 3.75, width = 4)
+
+ggsave("../Figures/Boxplots/IL15_boxplot.pdf", height = 3.75, width = 4)
+```
+
+*** IL10
+
+```{r}
+
+combined29Plex <- read_csv("../Processed_data/combined_29plex_boxplot.csv")
+
+combined29Plex$case <- factor(combined29Plex$case, 
+                              levels = c("Cases","Controls"))
+pvals <- compare_means(
+  IL10 ~ case,
+  group.by = "TP",
+  data = combined29Plex,
+  method = "wilcox.test"
+)
+ 
+# STEP 2: Add custom y-positions for p-value labels per timepoint
+pvals <- pvals %>%
+  mutate(y.position = ifelse(TP == "Enrolment", log10(300), log10(350)))
+ 
+# STEP 3: Plot with facet_wrap and correct p-values
+
+combined29Plex %>% dplyr::filter(!is.na(case)) %>% 
+ggboxplot(x = "case", y = "IL10", fill = "case", 
+          bxp.errorbar = TRUE,
+          size = 0.15,
+          width = 0.45,
+          bxp.errorbar.width = 0.15) +
+  scale_y_log10() +
+  stat_pvalue_manual(
+    pvals,
+    label = "p.format",
+    label.size = 2.88,
+    y.position = "y.position"
+  ) +
+  labs(y = "IL10 in pg/ml", x = NULL) +
+  ggsci::scale_fill_nejm() +
+  theme(legend.position = "none",
+        strip.text = element_text(size = 12, face = "bold"),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.text = element_text(size = 9),
+        axis.text.x = element_text(size = 9, face = "bold"))+
+  facet_wrap(~TP)
+
+
+#ggsave("../Figures/Boxplots/IL10.jpeg", height = 3.5, width = 2)
+
+#ggsave("../Figures/Boxplots/IL10.pdf", height = 3.75, width = 4)
+
+ggsave("../Figures/Boxplots/IL10_boxplot.pdf", height = 3.75, width = 4)
+
+```
+
+# {-}
